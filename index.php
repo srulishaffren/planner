@@ -230,6 +230,13 @@ $today = date('Y-m-d');
     .confirm-modal .btn-cancel:hover { background:var(--bg-active); }
     .confirm-modal .btn-danger { background:var(--accent-danger); color:#fff; }
     .confirm-modal .btn-danger:hover { opacity:0.9; }
+
+    /* Toast notifications */
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--bg-secondary); color:var(--text-primary); padding:12px 24px; border-radius:8px; border:1px solid var(--border-secondary); box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:3000; opacity:0; transition:opacity 0.3s; }
+    .toast.show { opacity:1; }
+    .toast.success { border-color:var(--accent-success); }
+    .toast.info { border-color:var(--accent-primary); }
+
     .modal-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border-secondary); }
     .modal-header h2 { margin:0; font-size:var(--font-size-large); }
     .modal-header button { background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer; line-height:1; }
@@ -919,6 +926,27 @@ function showConfirm(message, okText = 'Delete') {
     okBtn.addEventListener('click', onOk);
     cancelBtn.addEventListener('click', onCancel);
   });
+}
+
+// Toast notifications
+function showToast(message, type = 'info', duration = 3000) {
+  // Remove any existing toast
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  // Trigger reflow then show
+  toast.offsetHeight;
+  toast.classList.add('show');
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
 }
 
 // Theme presets
@@ -1624,8 +1652,17 @@ function checkForUncompletedTasks() {
 
   apiPost({ action: 'get_uncompleted_tasks', date: yesterdayStr }).then(data => {
     if (data.success && data.uncompleted_tasks && data.uncompleted_tasks.length > 0) {
-      yesterdayUncompleted = data.uncompleted_tasks;
-      showCarryForwardSection(yesterdayStr, data.uncompleted_tasks.length);
+      // Filter out tasks that already exist in today's tasks (by text match)
+      const todayTexts = new Set(tasks.map(t => t.text));
+      const copyable = data.uncompleted_tasks.filter(t => !todayTexts.has(t.text));
+
+      if (copyable.length > 0) {
+        yesterdayUncompleted = copyable;
+        showCarryForwardSection(yesterdayStr, copyable.length);
+      } else {
+        yesterdayUncompleted = [];
+        hideCarryForwardSection();
+      }
     } else {
       yesterdayUncompleted = [];
       hideCarryForwardSection();
@@ -1664,17 +1701,16 @@ function hideCarryForwardSection() {
 function carryForwardTasks(fromDate) {
   apiPost({ action: 'carry_forward_tasks', from_date: fromDate, to_date: currentDate }).then(data => {
     if (!data.success) {
-      alert('Error carrying forward tasks: ' + (data.error || 'Unknown'));
+      showToast('Error: ' + (data.error || 'Unknown'), 'info');
       return;
     }
     tasks = data.tasks;
     renderTasks();
     hideCarryForwardSection();
     if (data.copied_count > 0) {
-      alert(data.copied_count + ' task' + (data.copied_count !== 1 ? 's' : '') + ' carried forward');
-    } else {
-      alert('No new tasks to carry forward (may already exist)');
+      showToast(data.copied_count + ' task' + (data.copied_count !== 1 ? 's' : '') + ' carried forward', 'success');
     }
+    // If copied_count is 0, just hide silently - tasks already exist
   });
 }
 
