@@ -1,0 +1,17 @@
+# Disable directory listing
+Options -Indexes
+
+# Basic HTTP auth
+AuthType Basic
+AuthName "Private Planner"
+AuthUserFile /var/www/vhosts/gapaika.com/private/.htpasswd-planner
+Require valid-user
+
+# Do not let search engines in, even if they bypass auth somehow
+Header set X-Robots-Tag "noindex, nofollow"
+
+<Files "robots.txt">
+  # Let robots.txt be visible without auth (optional)
+  Satisfy Any
+  Allow from all
+</Files>
