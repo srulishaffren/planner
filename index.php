@@ -165,7 +165,10 @@ $today = date('Y-m-d');
     .priority-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
     .priority-title { font-weight:bold; }
     .task-list { list-style:none; padding:4px; margin:0; min-height:30px; border:1px dashed var(--border-primary); border-radius:4px; }
-    .task-item { background:var(--bg-tertiary); border:1px solid var(--border-secondary); border-radius:4px; padding:6px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center; cursor:grab; }
+    .task-item { background:var(--bg-tertiary); border:1px solid var(--border-secondary); border-radius:4px; padding:6px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .drag-handle { cursor:grab; color:var(--text-muted); padding:4px 2px; font-size:1.1em; user-select:none; }
+    .drag-handle:hover { color:var(--text-secondary); }
+    .drag-handle:active { cursor:grabbing; }
     .task-left { display:flex; flex-direction:column; }
     .task-meta { font-size:var(--font-size-xs); color:var(--text-secondary); }
     .task-controls { display:flex; gap:4px; align-items:center; }
@@ -1337,6 +1340,11 @@ function renderTasks() {
       item.addEventListener('dragstart', handleDragStart);
       item.addEventListener('dragend', handleDragEnd);
 
+      const dragHandle = document.createElement('span');
+      dragHandle.className = 'drag-handle';
+      dragHandle.textContent = '⋮⋮';
+      dragHandle.title = 'Drag to reorder';
+
       const left = document.createElement('div');
       left.className = 'task-left';
       const text = document.createElement('div');
@@ -1413,6 +1421,7 @@ function renderTasks() {
       controls.appendChild(completeBtn);
       controls.appendChild(deleteBtn);
 
+      item.appendChild(dragHandle);
       item.appendChild(left);
       item.appendChild(controls);
       list.appendChild(item);
@@ -1427,6 +1436,11 @@ function renderTasks() {
 let draggedId = null;
 
 function handleDragStart(e) {
+  // Only allow drag from the handle
+  if (!e.target.classList.contains('drag-handle')) {
+    e.preventDefault();
+    return;
+  }
   draggedId = this.dataset.taskId;
   e.dataTransfer.effectAllowed = 'move';
   this.style.opacity = '0.5';
