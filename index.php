@@ -235,6 +235,7 @@ $today = date('Y-m-d');
     .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--bg-secondary); color:var(--text-primary); padding:12px 24px; border-radius:8px; border:1px solid var(--border-secondary); box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:3000; opacity:0; transition:opacity 0.3s; }
     .toast.show { opacity:1; }
     .toast.success { border-color:var(--accent-success); }
+    .toast.error { border-color:var(--accent-danger); }
     .toast.info { border-color:var(--accent-primary); }
 
     .modal-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border-secondary); }
@@ -1305,7 +1306,7 @@ function updatePrettyDate() {
 function loadDay(date) {
   apiPost({ action: 'get_day', date: date }).then(data => {
     if (!data.success) {
-      alert('Error loading day');
+      showToast('Error loading day', 'error');
       return;
     }
     currentDate = date;
@@ -1514,7 +1515,7 @@ function handleDrop(e) {
   apiPost({ action: 'reorder_tasks', date: currentDate, priority: priority, ordered_ids: ids })
     .then(data => {
       if (!data.success) {
-        alert('Error saving order');
+        showToast('Error saving order', 'error');
       } else {
         tasks = data.tasks;
         renderTasks();
@@ -1526,7 +1527,7 @@ function handleDrop(e) {
 function addTask(text, priority) {
   apiPost({ action: 'add_task', date: currentDate, text, priority }).then(data => {
     if (!data.success) {
-      alert('Error adding task');
+      showToast('Error adding task', 'error');
       return;
     }
     tasks = data.tasks;
@@ -1537,7 +1538,7 @@ function addTask(text, priority) {
 function updateTask(id, fields) {
   apiPost({ action: 'update_task', id, fields }).then(data => {
     if (!data.success) {
-      alert('Error updating task');
+      showToast('Error updating task', 'error');
       return;
     }
     tasks = data.tasks;
@@ -1548,7 +1549,7 @@ function updateTask(id, fields) {
 function deleteTask(id) {
   apiPost({ action: 'delete_task', id }).then(data => {
     if (!data.success) {
-      alert('Error deleting task');
+      showToast('Error deleting task', 'error');
       return;
     }
     tasks = data.tasks;
@@ -1606,7 +1607,7 @@ function saveTaskDetails() {
 
   apiPost({ action: 'update_task', id: parseInt(taskId), fields }).then(data => {
     if (!data.success) {
-      alert('Error saving task');
+      showToast('Error saving task', 'error');
       return;
     }
     tasks = data.tasks;
@@ -1637,10 +1638,10 @@ function getPrevDay(dateStr) {
 function copyTaskToDate(taskId, targetDate) {
   apiPost({ action: 'copy_task', id: parseInt(taskId), target_date: targetDate }).then(data => {
     if (!data.success) {
-      alert('Error copying task: ' + (data.error || 'Unknown'));
+      showToast('Error copying task: ' + (data.error || 'Unknown'), 'error');
       return;
     }
-    alert('Task copied to ' + formatPrettyDate(targetDate));
+    showToast('Task copied to ' + formatPrettyDate(targetDate), 'success');
   });
 }
 
@@ -1701,7 +1702,7 @@ function hideCarryForwardSection() {
 function carryForwardTasks(fromDate) {
   apiPost({ action: 'carry_forward_tasks', from_date: fromDate, to_date: currentDate }).then(data => {
     if (!data.success) {
-      showToast('Error: ' + (data.error || 'Unknown'), 'info');
+      showToast('Error: ' + (data.error || 'Unknown'), 'error');
       return;
     }
     tasks = data.tasks;
@@ -1719,7 +1720,7 @@ function saveJournal() {
   const content = document.getElementById('journal-content').value;
   apiPost({ action: 'save_journal', date: currentDate, content }).then(data => {
     if (!data.success) {
-      alert('Error saving journal');
+      showToast('Error saving journal', 'error');
     }
   });
 }
@@ -1832,14 +1833,14 @@ function uploadFiles(files) {
     .then(r => r.json())
     .then(data => {
       if (!data.success) {
-        alert('Upload failed: ' + (data.error || 'Unknown error'));
+        showToast('Upload failed: ' + (data.error || 'Unknown error'), 'error');
       } else {
         attachments = data.attachments || [];
         renderAttachments();
       }
     })
     .catch(err => {
-      alert('Upload error: ' + err.message);
+      showToast('Upload error: ' + err.message, 'error');
     });
   });
 }
@@ -1847,7 +1848,7 @@ function uploadFiles(files) {
 function deleteAttachment(id) {
   apiPost({ action: 'delete_attachment', id: id, date: currentDate }).then(data => {
     if (!data.success) {
-      alert('Error deleting attachment');
+      showToast('Error deleting attachment', 'error');
     } else {
       attachments = data.attachments || [];
       renderAttachments();
@@ -1894,7 +1895,7 @@ function renderIndexEntries() {
 function addIndexEntry(summary) {
   apiPost({ action: 'add_index_entry', date: currentDate, summary: summary }).then(data => {
     if (!data.success) {
-      alert('Error adding index entry');
+      showToast('Error adding index entry', 'error');
     } else {
       indexEntries = data.index_entries || [];
       renderIndexEntries();
@@ -1905,7 +1906,7 @@ function addIndexEntry(summary) {
 function deleteIndexEntry(id) {
   apiPost({ action: 'delete_index_entry', id: id, date: currentDate }).then(data => {
     if (!data.success) {
-      alert('Error deleting index entry');
+      showToast('Error deleting index entry', 'error');
     } else {
       indexEntries = data.index_entries || [];
       renderIndexEntries();
@@ -1999,13 +2000,13 @@ function closeSearchModal() {
 function performSearch() {
   const query = document.getElementById('search-query').value.trim();
   if (query.length < 2) {
-    alert('Please enter at least 2 characters');
+    showToast('Please enter at least 2 characters', 'error');
     return;
   }
 
   apiPost({ action: 'search_journal', query: query }).then(data => {
     if (!data.success) {
-      alert('Search error: ' + (data.error || 'Unknown'));
+      showToast('Search error: ' + (data.error || 'Unknown'), 'error');
       return;
     }
     renderSearchResults(data.results || []);
@@ -2283,7 +2284,7 @@ function addYartzheit(name, hebrewMonth, hebrewDay, relationship) {
     notes: ''
   }).then(data => {
     if (!data.success) {
-      alert('Error adding yartzheit: ' + (data.error || 'Unknown'));
+      showToast('Error adding yartzheit: ' + (data.error || 'Unknown'), 'error');
     } else {
       allYartzheits = data.yartzheits || [];
       renderYartzheitsList();
@@ -2296,7 +2297,7 @@ function addYartzheit(name, hebrewMonth, hebrewDay, relationship) {
 function deleteYartzheit(id) {
   apiPost({ action: 'delete_yartzheit', id: id }).then(data => {
     if (!data.success) {
-      alert('Error deleting yartzheit');
+      showToast('Error deleting yartzheit', 'error');
     } else {
       allYartzheits = data.yartzheits || [];
       renderYartzheitsList();
@@ -2414,7 +2415,7 @@ function addRecurringTask(text, priority, patternType, patternValue, anchorDate,
     end_date: endDate || null
   }).then(data => {
     if (!data.success) {
-      alert('Error adding recurring task: ' + (data.error || 'Unknown'));
+      showToast('Error adding recurring task: ' + (data.error || 'Unknown'), 'error');
     } else {
       allRecurringTasks = data.recurring_tasks || [];
       renderRecurringList();
@@ -2438,7 +2439,7 @@ function toggleRecurringTask(id, newActive) {
 function deleteRecurringTask(id) {
   apiPost({ action: 'delete_recurring_task', id: id }).then(data => {
     if (!data.success) {
-      alert('Error deleting recurring task');
+      showToast('Error deleting recurring task', 'error');
     } else {
       allRecurringTasks = data.recurring_tasks || [];
       renderRecurringList();
@@ -2488,7 +2489,7 @@ function saveSettings() {
 
   apiPost({ action: 'save_settings', settings: settings }).then(data => {
     if (!data.success) {
-      alert('Error saving settings');
+      showToast('Error saving settings', 'error');
     } else {
       appSettings = data.settings || {};
       closeSettingsModal();
@@ -2709,7 +2710,7 @@ document.getElementById('export-btn').addEventListener('click', () => {
   closeUserDropdown();
   apiPost({ action: 'export_all' }).then(data => {
     if (!data.success) {
-      alert('Export failed');
+      showToast('Export failed', 'error');
       return;
     }
     const blob = new Blob([JSON.stringify(data.export, null, 2)], { type: 'application/json' });
@@ -2767,10 +2768,10 @@ document.getElementById('profile-photo-input').addEventListener('change', (e) =>
       btn.innerHTML = '<img src="' + data.path + '?t=' + Date.now() + '" alt="Profile" class="user-avatar">';
       closeUserDropdown();
     } else {
-      alert('Upload failed: ' + (data.error || 'Unknown error'));
+      showToast('Upload failed: ' + (data.error || 'Unknown error'), 'error');
     }
   })
-  .catch(err => alert('Upload error: ' + err.message));
+  .catch(err => showToast('Upload error: ' + err.message, 'error'));
 
   e.target.value = ''; // Reset input
 });
@@ -2807,7 +2808,7 @@ document.getElementById('task-copy-btn').addEventListener('click', () => {
   if (targetDate && taskId) {
     copyTaskToDate(parseInt(taskId), targetDate);
   } else {
-    alert('Invalid date format. Use YYYY-MM-DD or YYYY-Month-DD');
+    showToast('Invalid date format. Use YYYY-MM-DD or YYYY-Month-DD', 'error');
   }
 });
 
@@ -2998,7 +2999,7 @@ document.getElementById('date-input-go').addEventListener('click', (e) => {
   if (dateStr) {
     selectCalendarDate(dateStr);
   } else {
-    alert('Invalid date format. Try YYYY-MM-DD or MM/DD/YYYY');
+    showToast('Invalid date format. Try YYYY-MM-DD or MM/DD/YYYY', 'error');
   }
 });
 
