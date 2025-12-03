@@ -2499,6 +2499,14 @@ function loadParshaData() {
   const content = document.getElementById('parsha-content');
   content.innerHTML = '<div class="parsha-loading">Loading parsha information...</div>';
 
+  // Add preconnect hint to warm up connection to Sefaria
+  if (!document.querySelector('link[href="https://www.sefaria.org"]')) {
+    const preconnect = document.createElement('link');
+    preconnect.rel = 'preconnect';
+    preconnect.href = 'https://www.sefaria.org';
+    document.head.appendChild(preconnect);
+  }
+
   fetch('https://www.sefaria.org/api/calendars')
     .then(r => r.json())
     .then(data => {
@@ -2507,6 +2515,8 @@ function loadParshaData() {
       if (parsha) {
         parshaData = parsha;
         renderParshaContent(parsha);
+        // Prefetch today's aliyah page for faster loading
+        prefetchTodayAliyah(parsha);
       } else {
         content.innerHTML = '<div class="parsha-loading">Could not load parsha data</div>';
       }
@@ -2514,6 +2524,21 @@ function loadParshaData() {
     .catch(err => {
       content.innerHTML = '<div class="parsha-loading">Error loading parsha: ' + err.message + '</div>';
     });
+}
+
+function prefetchTodayAliyah(parsha) {
+  const aliyot = parsha.extraDetails?.aliyot || [];
+  const dayOfWeek = new Date().getDay();
+  if (aliyot.length > dayOfWeek) {
+    const todayAliyah = aliyot[dayOfWeek];
+    const sefariaUrl = 'https://www.sefaria.org/' + todayAliyah.replace(/ /g, '_') + '?lang=bi&with=Targum%20Onkelos&lang2=en';
+
+    // Add prefetch hint for the actual page
+    const prefetch = document.createElement('link');
+    prefetch.rel = 'prefetch';
+    prefetch.href = sefariaUrl;
+    document.head.appendChild(prefetch);
+  }
 }
 
 function renderParshaContent(parsha) {
