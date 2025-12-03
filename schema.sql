@@ -87,3 +87,22 @@ INSERT INTO settings (setting_key, setting_value, updated_at) VALUES
   ('timezone', 'Asia/Jerusalem', NOW()),
   ('elevation', '829', NOW());
 
+
+-- Hebrew calendar cache (reduces Hebcal API calls)
+CREATE TABLE hebrew_cache (
+  cache_date DATE NOT NULL,
+  cache_type ENUM('hebrew_info', 'zmanim') NOT NULL,
+  payload JSON NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (cache_date, cache_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Migration for existing databases:
+-- CREATE TABLE hebrew_cache (
+--   cache_date DATE NOT NULL,
+--   cache_type ENUM('hebrew_info', 'zmanim') NOT NULL,
+--   payload JSON NOT NULL,
+--   updated_at DATETIME NOT NULL,
+--   PRIMARY KEY (cache_date, cache_type)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+

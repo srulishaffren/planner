@@ -9,6 +9,13 @@ if (empty($_SESSION['planner_logged_in'])) {
     exit;
 }
 
+// CSRF token validation
+$csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+    echo json_encode(['success' => false, 'error' => 'Invalid CSRF token']);
+    exit;
+}
+
 // Handle both JSON and multipart/form-data requests
 $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
 if (strpos($contentType, 'multipart/form-data') !== false) {
@@ -237,11 +244,24 @@ try {
             echo json_encode(['success' => true, 'settings' => $allSettings]);
             break;
 
+        case 'export_all':
+            $export = [
+                'exported_at' => date('Y-m-d H:i:s'),
+                'tasks' => $pdo->query('SELECT * FROM tasks ORDER BY task_date, priority, sort_order')->fetchAll(PDO::FETCH_ASSOC),
+                'journal_entries' => $pdo->query('SELECT * FROM journal_entries ORDER BY entry_date')->fetchAll(PDO::FETCH_ASSOC),
+                'journal_index' => $pdo->query('SELECT * FROM journal_index ORDER BY entry_date')->fetchAll(PDO::FETCH_ASSOC),
+                'yartzheits' => $pdo->query('SELECT * FROM yartzheits ORDER BY hebrew_month, hebrew_day')->fetchAll(PDO::FETCH_ASSOC),
+                'settings' => get_all_settings($pdo),
+            ];
+            echo json_encode(['success' => true, 'export' => $export]);
+            break;
+
         default:
             echo json_encode(['success' => false, 'error' => 'Unknown action']);
     }
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    error_log('Planner API error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    echo json_encode(['success' => false, 'error' => 'An error occurred. Please try again.']);
 }
 
 // Helper functions
@@ -599,6 +619,19 @@ function search_journal(PDO $pdo, string $query): array {
 function get_hebrew_info(PDO $pdo, string $date): array {
     global $latitude, $longitude, $timezone, $locationName;
 
+    // Check cache first (yartzheits excluded - they're user data)
+    $cached = get_cache($pdo, $date, 'hebrew_info');
+    if ($cached !== null) {
+        // Add fresh yartzheits from database
+        $cached['yartzheits'] = [];
+        if (!empty($cached['hebrew_month']) && !empty($cached['hebrew_day'])) {
+            $hebrewMonth = hebrew_month_to_number($cached['hebrew_month']);
+            $hebrewDay = (int)$cached['hebrew_day'];
+            $cached['yartzheits'] = get_yartzheits_for_date($pdo, $hebrewMonth, $hebrewDay);
+        }
+        return $cached;
+    }
+
     list($year, $month, $day) = explode('-', $date);
     $dayOfWeek = date('w', strtotime($date)); // 0=Sunday, 5=Friday, 6=Saturday
 
@@ -627,14 +660,14 @@ function get_hebrew_info(PDO $pdo, string $date): array {
         }
     };
 
-    // Get Hebrew date from Hebcal
+    // Get Hebrew date from Hebcal (with timeout)
     $converterUrl = "https://www.hebcal.com/converter?cfg=json&gy={$year}&gm={$month}&gd={$day}&g2h=1";
-    $converterData = @file_get_contents($converterUrl);
+    $converterData = fetch_url($converterUrl);
     $hebrewDate = $converterData ? json_decode($converterData, true) : null;
 
-    // Get holidays/events for this date with candle lighting
+    // Get holidays/events for this date with candle lighting (with timeout)
     $holidaysUrl = "https://www.hebcal.com/hebcal?cfg=json&v=1&year={$year}&month={$month}&maj=on&min=on&mod=on&nx=on&ss=on&mf=on&c=on&geo=pos&latitude={$lat}&longitude={$lon}&tzid=" . urlencode($tz);
-    $holidaysData = @file_get_contents($holidaysUrl);
+    $holidaysData = fetch_url($holidaysUrl);
     $holidaysJson = $holidaysData ? json_decode($holidaysData, true) : null;
 
     $holidays = [];
@@ -715,15 +748,8 @@ function get_hebrew_info(PDO $pdo, string $date): array {
         $specialDay = 'shabbat';
     }
 
-    // Check for yartzheits on this Hebrew date
-    $yartzheits = [];
-    if ($hebrewDate && isset($hebrewDate['hm']) && isset($hebrewDate['hd'])) {
-        $hebrewMonth = hebrew_month_to_number($hebrewDate['hm']);
-        $hebrewDay = (int)$hebrewDate['hd'];
-        $yartzheits = get_yartzheits_for_date($pdo, $hebrewMonth, $hebrewDay);
-    }
-
-    return [
+    // Build result (without yartzheits for caching)
+    $result = [
         'hebrew_date' => $hebrewDate ? ($hebrewDate['hebrew'] ?? '') : '',
         'hebrew_day' => $hebrewDate['hd'] ?? null,
         'hebrew_month' => $hebrewDate['hm'] ?? null,
@@ -739,8 +765,20 @@ function get_hebrew_info(PDO $pdo, string $date): array {
         'special_day' => $specialDay,
         'candle_lighting' => $candleLighting,
         'havdalah' => $havdalah,
-        'yartzheits' => $yartzheits,
     ];
+
+    // Cache the result (without yartzheits)
+    set_cache($pdo, $date, 'hebrew_info', $result);
+
+    // Add yartzheits from database (not cached - user data)
+    $result['yartzheits'] = [];
+    if ($hebrewDate && isset($hebrewDate['hm']) && isset($hebrewDate['hd'])) {
+        $hebrewMonth = hebrew_month_to_number($hebrewDate['hm']);
+        $hebrewDay = (int)$hebrewDate['hd'];
+        $result['yartzheits'] = get_yartzheits_for_date($pdo, $hebrewMonth, $hebrewDay);
+    }
+
+    return $result;
 }
 
 function hebrew_month_to_number(string $monthName): int {
@@ -775,14 +813,23 @@ function get_zmanim(string $date): array {
         $tz = $settings['timezone'] ?? $timezone;
         $loc = $settings['location_name'] ?? $locationName;
     } catch (Exception $e) {
+        $pdo = null;
         $lat = $latitude;
         $lon = $longitude;
         $tz = $timezone;
         $loc = $locationName;
     }
 
+    // Check cache first
+    if ($pdo) {
+        $cached = get_cache($pdo, $date, 'zmanim');
+        if ($cached !== null) {
+            return $cached;
+        }
+    }
+
     $url = "https://www.hebcal.com/zmanim?cfg=json&date={$date}&latitude={$lat}&longitude={$lon}&tzid=" . urlencode($tz) . "&sec=0";
-    $data = @file_get_contents($url);
+    $data = fetch_url($url);
     $json = $data ? json_decode($data, true) : null;
 
     if (!$json || !isset($json['times'])) {
@@ -804,7 +851,7 @@ function get_zmanim(string $date): array {
         }
     };
 
-    return [
+    $result = [
         'location' => $loc,
         'date' => $date,
         'alotHaShachar' => $formatTime($times['alotHaShachar'] ?? null),
@@ -820,6 +867,13 @@ function get_zmanim(string $date): array {
         'tzeit42min' => $formatTime($times['tzeit42min'] ?? null),
         'tzeit72min' => $formatTime($times['tzeit72min'] ?? null),
     ];
+
+    // Cache the result
+    if ($pdo) {
+        set_cache($pdo, $date, 'zmanim', $result);
+    }
+
+    return $result;
 }
 
 // Yartzheit functions
@@ -880,5 +934,56 @@ function save_settings(PDO $pdo, array $settings): void {
             ':v2' => $value,
             ':u2' => $now,
         ]);
+    }
+}
+
+// URL fetch with timeout
+function fetch_url(string $url, int $timeout = 5): ?string {
+    $ctx = stream_context_create([
+        'http' => [
+            'timeout' => $timeout,
+            'ignore_errors' => true,
+        ]
+    ]);
+    $result = @file_get_contents($url, false, $ctx);
+    return $result !== false ? $result : null;
+}
+
+// Cache helpers (24-hour TTL)
+function get_cache(PDO $pdo, string $date, string $type): ?array {
+    try {
+        $stmt = $pdo->prepare('SELECT payload, updated_at FROM hebrew_cache WHERE cache_date = :d AND cache_type = :t');
+        $stmt->execute([':d' => $date, ':t' => $type]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) return null;
+
+        // Check if cache is still valid (24 hours)
+        $updatedAt = strtotime($row['updated_at']);
+        if (time() - $updatedAt > 86400) return null;
+
+        return json_decode($row['payload'], true);
+    } catch (Exception $e) {
+        return null; // Table might not exist yet
+    }
+}
+
+function set_cache(PDO $pdo, string $date, string $type, array $payload): void {
+    try {
+        $now = date('Y-m-d H:i:s');
+        $stmt = $pdo->prepare('
+            INSERT INTO hebrew_cache (cache_date, cache_type, payload, updated_at)
+            VALUES (:d, :t, :p, :u)
+            ON DUPLICATE KEY UPDATE payload = :p2, updated_at = :u2
+        ');
+        $stmt->execute([
+            ':d' => $date,
+            ':t' => $type,
+            ':p' => json_encode($payload),
+            ':u' => $now,
+            ':p2' => json_encode($payload),
+            ':u2' => $now,
+        ]);
+    } catch (Exception $e) {
+        // Silently fail if table doesn't exist
     }
 }

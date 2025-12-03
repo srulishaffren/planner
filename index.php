@@ -10,6 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
     if ($user === $appUsername && password_verify($pass, $appPasswordHash)) {
         $_SESSION['planner_logged_in'] = true;
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         header('Location: index.php');
         exit;
     } else {
@@ -66,6 +67,7 @@ $today = date('Y-m-d');
   <meta charset="utf-8">
   <title>Gapaika Planner</title>
   <meta name="robots" content="noindex,nofollow">
+  <meta name="csrf-token" content="<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? ''); ?>">
   <style>
     :root {
       /* Base theme variables */
@@ -390,6 +392,7 @@ $today = date('Y-m-d');
       <button id="month-index-btn" title="Monthly index">Index</button>
       <button id="yartzheits-btn" title="Manage Yartzheits">Yartzheits</button>
       <button id="settings-btn" title="Settings">Settings</button>
+      <button id="export-btn" title="Export all data">Export</button>
     </div>
     <form method="post" action="logout.php" style="margin-left:8px;">
       <button type="submit">Logout</button>
@@ -1023,9 +1026,13 @@ let calendarViewDate = new Date(); // The month/year being viewed in the calenda
 let indexViewDate = new Date();
 
 function apiPost(payload) {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
   return fetch('api.php', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken
+    },
     credentials: 'same-origin',
     body: JSON.stringify(payload)
   }).then(r => r.json());
@@ -1548,8 +1555,10 @@ function uploadFiles(files) {
     formData.append('date', currentDate);
     formData.append('file', file);
 
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
     fetch('api.php', {
       method: 'POST',
+      headers: { 'X-CSRF-Token': csrfToken },
       credentials: 'same-origin',
       body: formData
     })
@@ -2098,6 +2107,13 @@ document.getElementById('save-journal').addEventListener('click', e => {
   saveJournal();
 });
 
+document.getElementById('journal-content').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault();
+    saveJournal();
+  }
+});
+
 // Dropzone events
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('file-input');
@@ -2225,6 +2241,22 @@ document.getElementById('settings-modal').addEventListener('click', (e) => {
 document.getElementById('settings-form').addEventListener('submit', (e) => {
   e.preventDefault();
   saveSettings();
+});
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  apiPost({ action: 'export_all' }).then(data => {
+    if (!data.success) {
+      alert('Export failed');
+      return;
+    }
+    const blob = new Blob([JSON.stringify(data.export, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'planner-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 });
 
 // Theme control events

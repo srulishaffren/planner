@@ -1,0 +1,9 @@
+# Secrets - never commit
+config.php
+
+# User data
+uploads/
+logs/
+
+# Server config (may contain sensitive paths)
+.htaccess

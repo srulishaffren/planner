@@ -1,11 +1,12 @@
 <?php
 // config.php
+// Copy this file to config.php and fill in your values
 
 // DB connection
 $dbHost = 'localhost';
-$dbName = 'sruli_planner';
-$dbUser = 'sruli';
-$dbPass = 'ContentlySleeveVoyage#@!';
+$dbName = 'your_database_name';
+$dbUser = 'your_db_user';
+$dbPass = 'your_db_password';
 
 // File uploads
 $uploadDir = __DIR__ . '/uploads';
@@ -26,15 +27,17 @@ $timezone = 'America/New_York';
 $elevation = 10; // meters
 
 // Single app login user
-$appUsername = 'sruli';
+$appUsername = 'your_username';
 
 // Generate this once in a PHP shell and paste it:
 // password_hash('your-strong-password', PASSWORD_DEFAULT);
-$appPasswordHash = '$2y$10$lK43ge4fuTNg8uXMgIe7r.W7AOSB5JkGQMP.5uYpd3zSvgjTNVdLS';
+$appPasswordHash = '';
 
-// Error reporting (dev)
+// Error reporting - log to file, never display to browser
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/logs/php_errors.log');
 
 function get_pdo() {
     global $dbHost, $dbName, $dbUser, $dbPass;
