@@ -218,6 +218,15 @@ $today = date('Y-m-d');
     .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:2000; }
     .modal-overlay.open { display:flex; }
     .modal { background:var(--bg-secondary); border:1px solid var(--border-secondary); border-radius:8px; max-width:600px; width:90%; max-height:80vh; display:flex; flex-direction:column; }
+    .confirm-modal { max-width:400px; }
+    .confirm-modal .modal-body { text-align:center; padding:24px; }
+    .confirm-modal .confirm-message { margin-bottom:20px; font-size:1.1rem; }
+    .confirm-modal .confirm-buttons { display:flex; gap:12px; justify-content:center; }
+    .confirm-modal .confirm-buttons button { padding:10px 24px; border-radius:6px; border:none; cursor:pointer; font-size:1rem; }
+    .confirm-modal .btn-cancel { background:var(--bg-hover); color:var(--text-primary); border:1px solid var(--border-input); }
+    .confirm-modal .btn-cancel:hover { background:var(--bg-active); }
+    .confirm-modal .btn-danger { background:var(--accent-danger); color:#fff; }
+    .confirm-modal .btn-danger:hover { opacity:0.9; }
     .modal-header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border-secondary); }
     .modal-header h2 { margin:0; font-size:var(--font-size-large); }
     .modal-header button { background:none; border:none; color:var(--text-muted); font-size:1.5rem; cursor:pointer; line-height:1; }
@@ -844,6 +853,19 @@ $today = date('Y-m-d');
   </div>
 </div>
 
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal confirm-modal">
+    <div class="modal-body">
+      <div class="confirm-message" id="confirm-message">Are you sure?</div>
+      <div class="confirm-buttons">
+        <button class="btn-cancel" id="confirm-cancel">Cancel</button>
+        <button class="btn-danger" id="confirm-ok">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const statuses = [
   { value: 'todo',        label: 'To do' },
@@ -862,6 +884,39 @@ let hebrewInfo = null;
 let allYartzheits = [];
 let appSettings = {};
 let currentTheme = {};
+
+// Custom confirm modal
+function showConfirm(message, okText = 'Delete') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirm-modal');
+    const msgEl = document.getElementById('confirm-message');
+    const okBtn = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+
+    msgEl.textContent = message;
+    okBtn.textContent = okText;
+    modal.classList.add('open');
+
+    function cleanup() {
+      modal.classList.remove('open');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+
+    function onOk() {
+      cleanup();
+      resolve(true);
+    }
+
+    function onCancel() {
+      cleanup();
+      resolve(false);
+    }
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
 
 // Theme presets
 const themePresets = {
@@ -1347,8 +1402,8 @@ function renderTasks() {
 
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = 'X';
-      deleteBtn.addEventListener('click', () => {
-        if (confirm('Delete this task?')) {
+      deleteBtn.addEventListener('click', async () => {
+        if (await showConfirm('Delete this task?')) {
           deleteTask(task.id);
         }
       });

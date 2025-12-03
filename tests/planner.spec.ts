@@ -176,10 +176,13 @@ test.describe('Task Management', () => {
     // Verify it exists
     await expect(page.locator(`.task-item:has-text("${taskText}")`)).toBeVisible();
 
-    // Delete it (X button) - handle confirm dialog
+    // Delete it (X button) - handle custom confirm modal
     const taskItem = page.locator(`.task-item:has-text("${taskText}")`);
-    page.on('dialog', dialog => dialog.accept());
     await taskItem.locator('button:has-text("X")').click();
+    await page.waitForTimeout(300);
+
+    // Click the Delete button in the confirm modal
+    await page.click('#confirm-ok');
     await page.waitForTimeout(500);
 
     // Verify it's gone
