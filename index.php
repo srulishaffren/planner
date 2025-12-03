@@ -274,6 +274,22 @@ $today = date('Y-m-d');
     .yartzheit-item button:hover { background:var(--accent-danger); }
     .yartzheit-empty { color:var(--text-faint); font-style:italic; }
 
+    /* Recurring tasks modal */
+    .recurring-form { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--border-secondary); }
+    .recurring-form-row { display:flex; gap:8px; align-items:center; }
+    .recurring-form input, .recurring-form select { background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-primary); padding:6px 8px; border-radius:4px; }
+    .recurring-form button { padding:8px 16px; background:var(--accent-primary); border:none; color:#fff; border-radius:4px; cursor:pointer; }
+    .recurring-list { }
+    .recurring-item { display:flex; justify-content:space-between; align-items:center; background:var(--bg-tertiary); border:1px solid var(--border-secondary); border-radius:4px; padding:8px 10px; margin-bottom:6px; }
+    .recurring-item.inactive { opacity:0.5; }
+    .recurring-info { flex:1; }
+    .recurring-text { font-weight:600; color:var(--text-primary); }
+    .recurring-pattern { font-size:var(--font-size-small); color:var(--text-secondary); }
+    .recurring-actions { display:flex; gap:4px; }
+    .recurring-item button { padding:4px 8px; font-size:var(--font-size-xs); background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; cursor:pointer; }
+    .recurring-item button:hover { background:var(--accent-danger); }
+    .recurring-empty { color:var(--text-faint); font-style:italic; }
+
     /* Settings modal */
     .settings-form { display:flex; flex-direction:column; gap:12px; }
     .settings-row { display:flex; flex-direction:column; gap:4px; }
@@ -391,6 +407,7 @@ $today = date('Y-m-d');
       <button id="search-btn" title="Search journals">Search</button>
       <button id="month-index-btn" title="Monthly index">Index</button>
       <button id="yartzheits-btn" title="Manage Yartzheits">Yartzheits</button>
+      <button id="recurring-btn" title="Recurring Tasks">Recurring</button>
       <button id="settings-btn" title="Settings">Settings</button>
       <button id="export-btn" title="Export all data">Export</button>
     </div>
@@ -535,6 +552,59 @@ $today = date('Y-m-d');
         </div>
       </form>
       <div class="yartzheit-list" id="yartzheit-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Recurring Tasks Modal -->
+<div class="modal-overlay" id="recurring-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <h2>Recurring Tasks</h2>
+      <button id="recurring-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form class="recurring-form" id="recurring-form">
+        <div class="recurring-form-row">
+          <input type="text" id="recurring-text" placeholder="Task text..." required style="flex:1;">
+          <select id="recurring-priority">
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C" selected>C</option>
+            <option value="D">D</option>
+          </select>
+        </div>
+        <div class="recurring-form-row">
+          <select id="recurring-pattern-type" required>
+            <option value="">-- Pattern --</option>
+            <option value="day_of_month">Day of month</option>
+            <option value="day_of_week">Day of week</option>
+            <option value="interval_days">Every N days</option>
+            <option value="interval_weeks">Every N weeks</option>
+            <option value="interval_months">Every N months</option>
+          </select>
+          <input type="number" id="recurring-pattern-value" placeholder="Value" min="1" max="31" style="width:80px;">
+          <select id="recurring-weekday" style="display:none;">
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </div>
+        <div class="recurring-form-row">
+          <label style="margin-right:8px;">Starting:</label>
+          <input type="date" id="recurring-anchor-date" required>
+          <label style="margin-left:16px;margin-right:8px;">Until:</label>
+          <input type="date" id="recurring-end-date" placeholder="(optional)">
+        </div>
+        <div class="recurring-form-row">
+          <button type="submit">Add Recurring Task</button>
+        </div>
+      </form>
+      <div class="recurring-list" id="recurring-list"></div>
     </div>
   </div>
 </div>
@@ -2038,6 +2108,147 @@ function deleteYartzheit(id) {
   });
 }
 
+// Recurring tasks modal
+let allRecurringTasks = [];
+
+function openRecurringModal() {
+  document.getElementById('recurring-modal').classList.add('open');
+  document.getElementById('recurring-anchor-date').value = currentDate;
+  loadAllRecurringTasks();
+}
+
+function closeRecurringModal() {
+  document.getElementById('recurring-modal').classList.remove('open');
+}
+
+function loadAllRecurringTasks() {
+  apiPost({ action: 'get_recurring_tasks' }).then(data => {
+    if (data.success) {
+      allRecurringTasks = data.recurring_tasks || [];
+      renderRecurringList();
+    }
+  });
+}
+
+function formatPatternDescription(rt) {
+  const val = parseInt(rt.pattern_value);
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  switch (rt.pattern_type) {
+    case 'day_of_month': return `${val}${ordinalSuffix(val)} of each month`;
+    case 'day_of_week': return `Every ${weekdays[val]}`;
+    case 'interval_days': return `Every ${val} day${val > 1 ? 's' : ''}`;
+    case 'interval_weeks': return `Every ${val} week${val > 1 ? 's' : ''}`;
+    case 'interval_months': return `Every ${val} month${val > 1 ? 's' : ''}`;
+    default: return rt.pattern_type;
+  }
+}
+
+function ordinalSuffix(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function renderRecurringList() {
+  const container = document.getElementById('recurring-list');
+  container.innerHTML = '';
+
+  if (allRecurringTasks.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'recurring-empty';
+    empty.textContent = 'No recurring tasks set up.';
+    container.appendChild(empty);
+    return;
+  }
+
+  allRecurringTasks.forEach(rt => {
+    const item = document.createElement('div');
+    item.className = 'recurring-item' + (rt.is_active == 0 ? ' inactive' : '');
+
+    const info = document.createElement('div');
+    info.className = 'recurring-info';
+
+    const textEl = document.createElement('div');
+    textEl.className = 'recurring-text';
+    textEl.textContent = `[${rt.priority}] ${rt.text}`;
+    info.appendChild(textEl);
+
+    const patternEl = document.createElement('div');
+    patternEl.className = 'recurring-pattern';
+    patternEl.textContent = formatPatternDescription(rt);
+    if (rt.end_date) {
+      patternEl.textContent += ` (until ${rt.end_date})`;
+    }
+    info.appendChild(patternEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'recurring-actions';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.textContent = rt.is_active == 1 ? 'Pause' : 'Resume';
+    toggleBtn.addEventListener('click', () => {
+      toggleRecurringTask(rt.id, rt.is_active == 1 ? 0 : 1);
+    });
+    actions.appendChild(toggleBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => {
+      if (confirm('Delete this recurring task?')) {
+        deleteRecurringTask(rt.id);
+      }
+    });
+    actions.appendChild(deleteBtn);
+
+    item.appendChild(info);
+    item.appendChild(actions);
+    container.appendChild(item);
+  });
+}
+
+function addRecurringTask(text, priority, patternType, patternValue, anchorDate, endDate) {
+  apiPost({
+    action: 'add_recurring_task',
+    text: text,
+    priority: priority,
+    pattern_type: patternType,
+    pattern_value: patternValue,
+    anchor_date: anchorDate,
+    end_date: endDate || null
+  }).then(data => {
+    if (!data.success) {
+      alert('Error adding recurring task: ' + (data.error || 'Unknown'));
+    } else {
+      allRecurringTasks = data.recurring_tasks || [];
+      renderRecurringList();
+    }
+  });
+}
+
+function toggleRecurringTask(id, newActive) {
+  apiPost({
+    action: 'update_recurring_task',
+    id: id,
+    fields: { is_active: newActive }
+  }).then(data => {
+    if (data.success) {
+      allRecurringTasks = data.recurring_tasks || [];
+      renderRecurringList();
+    }
+  });
+}
+
+function deleteRecurringTask(id) {
+  apiPost({ action: 'delete_recurring_task', id: id }).then(data => {
+    if (!data.success) {
+      alert('Error deleting recurring task');
+    } else {
+      allRecurringTasks = data.recurring_tasks || [];
+      renderRecurringList();
+    }
+  });
+}
+
 // Settings modal
 function openSettingsModal() {
   document.getElementById('settings-modal').classList.add('open');
@@ -2228,6 +2439,57 @@ document.getElementById('yartzheit-form').addEventListener('submit', (e) => {
     document.getElementById('yartzheit-month').value = '';
     document.getElementById('yartzheit-day').value = '';
     document.getElementById('yartzheit-relationship').value = '';
+  }
+});
+
+// Recurring tasks modal events
+document.getElementById('recurring-btn').addEventListener('click', openRecurringModal);
+document.getElementById('recurring-modal-close').addEventListener('click', closeRecurringModal);
+document.getElementById('recurring-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'recurring-modal') closeRecurringModal();
+});
+
+document.getElementById('recurring-pattern-type').addEventListener('change', (e) => {
+  const type = e.target.value;
+  const valueInput = document.getElementById('recurring-pattern-value');
+  const weekdaySelect = document.getElementById('recurring-weekday');
+
+  if (type === 'day_of_week') {
+    valueInput.style.display = 'none';
+    weekdaySelect.style.display = 'block';
+  } else {
+    valueInput.style.display = 'block';
+    weekdaySelect.style.display = 'none';
+    if (type === 'day_of_month') {
+      valueInput.placeholder = 'Day (1-31)';
+      valueInput.max = 31;
+    } else {
+      valueInput.placeholder = 'Interval';
+      valueInput.max = 365;
+    }
+  }
+});
+
+document.getElementById('recurring-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = document.getElementById('recurring-text').value.trim();
+  const priority = document.getElementById('recurring-priority').value;
+  const patternType = document.getElementById('recurring-pattern-type').value;
+  const anchorDate = document.getElementById('recurring-anchor-date').value;
+  const endDate = document.getElementById('recurring-end-date').value;
+
+  let patternValue;
+  if (patternType === 'day_of_week') {
+    patternValue = parseInt(document.getElementById('recurring-weekday').value);
+  } else {
+    patternValue = parseInt(document.getElementById('recurring-pattern-value').value);
+  }
+
+  if (text && patternType && patternValue && anchorDate) {
+    addRecurringTask(text, priority, patternType, patternValue, anchorDate, endDate);
+    document.getElementById('recurring-text').value = '';
+    document.getElementById('recurring-pattern-type').value = '';
+    document.getElementById('recurring-pattern-value').value = '';
   }
 });
 

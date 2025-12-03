@@ -32,6 +32,7 @@ try {
     switch ($action) {
         case 'get_day':
             $date = $input['date'] ?? date('Y-m-d');
+            generate_recurring_tasks($pdo, $date);
             $tasks = load_tasks($pdo, $date);
             $journal = load_journal($pdo, $date);
             echo json_encode([
@@ -251,9 +252,57 @@ try {
                 'journal_entries' => $pdo->query('SELECT * FROM journal_entries ORDER BY entry_date')->fetchAll(PDO::FETCH_ASSOC),
                 'journal_index' => $pdo->query('SELECT * FROM journal_index ORDER BY entry_date')->fetchAll(PDO::FETCH_ASSOC),
                 'yartzheits' => $pdo->query('SELECT * FROM yartzheits ORDER BY hebrew_month, hebrew_day')->fetchAll(PDO::FETCH_ASSOC),
+                'recurring_tasks' => get_all_recurring_tasks($pdo),
                 'settings' => get_all_settings($pdo),
             ];
             echo json_encode(['success' => true, 'export' => $export]);
+            break;
+
+        case 'get_recurring_tasks':
+            $recurring = get_all_recurring_tasks($pdo);
+            echo json_encode(['success' => true, 'recurring_tasks' => $recurring]);
+            break;
+
+        case 'add_recurring_task':
+            $text = trim($input['text'] ?? '');
+            $notes = $input['notes'] ?? '';
+            $priority = $input['priority'] ?? 'C';
+            $patternType = $input['pattern_type'] ?? '';
+            $patternValue = (int)($input['pattern_value'] ?? 0);
+            $anchorDate = $input['anchor_date'] ?? date('Y-m-d');
+            $endDate = $input['end_date'] ?? null;
+
+            if ($text === '' || $patternType === '' || $patternValue <= 0) {
+                echo json_encode(['success' => false, 'error' => 'Invalid recurring task data']);
+                break;
+            }
+
+            add_recurring_task($pdo, $text, $notes, $priority, $patternType, $patternValue, $anchorDate, $endDate);
+            $recurring = get_all_recurring_tasks($pdo);
+            echo json_encode(['success' => true, 'recurring_tasks' => $recurring]);
+            break;
+
+        case 'update_recurring_task':
+            $id = (int)($input['id'] ?? 0);
+            $fields = $input['fields'] ?? [];
+            if (!$id) {
+                echo json_encode(['success' => false, 'error' => 'Invalid ID']);
+                break;
+            }
+            update_recurring_task($pdo, $id, $fields);
+            $recurring = get_all_recurring_tasks($pdo);
+            echo json_encode(['success' => true, 'recurring_tasks' => $recurring]);
+            break;
+
+        case 'delete_recurring_task':
+            $id = (int)($input['id'] ?? 0);
+            if (!$id) {
+                echo json_encode(['success' => false, 'error' => 'Invalid ID']);
+                break;
+            }
+            delete_recurring_task($pdo, $id);
+            $recurring = get_all_recurring_tasks($pdo);
+            echo json_encode(['success' => true, 'recurring_tasks' => $recurring]);
             break;
 
         default:
@@ -267,7 +316,7 @@ try {
 // Helper functions
 
 function load_tasks(PDO $pdo, string $date): array {
-    $stmt = $pdo->prepare('SELECT id, task_date, text, notes, priority, sort_order, status, created_at, updated_at FROM tasks WHERE task_date = :d ORDER BY priority, sort_order, id');
+    $stmt = $pdo->prepare('SELECT id, task_date, text, notes, priority, sort_order, status, recurring_task_id, created_at, updated_at FROM tasks WHERE task_date = :d ORDER BY priority, sort_order, id');
     $stmt->execute([':d' => $date]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -277,6 +326,98 @@ function load_journal(PDO $pdo, string $date): ?string {
     $stmt->execute([':d' => $date]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row ? $row['content'] : '';
+}
+
+function generate_recurring_tasks(PDO $pdo, string $date): void {
+    // Get all active recurring tasks
+    try {
+        $stmt = $pdo->query('SELECT * FROM recurring_tasks WHERE is_active = 1');
+        $recurring = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        return; // Table might not exist yet
+    }
+
+    $targetDate = new DateTime($date);
+
+    foreach ($recurring as $rt) {
+        // Check date constraints
+        $anchorDate = new DateTime($rt['anchor_date']);
+        if ($targetDate < $anchorDate) continue;
+        if ($rt['end_date'] && $targetDate > new DateTime($rt['end_date'])) continue;
+
+        // Check if this pattern matches the target date
+        if (!recurring_pattern_matches($rt, $targetDate, $anchorDate)) continue;
+
+        // Check if already generated for this date
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE task_date = :d AND recurring_task_id = :rid');
+        $stmt->execute([':d' => $date, ':rid' => $rt['id']]);
+        if ((int)$stmt->fetchColumn() > 0) continue;
+
+        // Generate the task
+        $stmt = $pdo->prepare('SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM tasks WHERE task_date = :d AND priority = :p');
+        $stmt->execute([':d' => $date, ':p' => $rt['priority']]);
+        $maxSort = (int)$stmt->fetchColumn();
+
+        $now = date('Y-m-d H:i:s');
+        $stmt = $pdo->prepare('INSERT INTO tasks (task_date, text, notes, priority, sort_order, status, recurring_task_id, created_at, updated_at) VALUES (:d, :t, :n, :p, :s, :st, :rid, :c, :u)');
+        $stmt->execute([
+            ':d' => $date,
+            ':t' => $rt['text'],
+            ':n' => $rt['notes'],
+            ':p' => $rt['priority'],
+            ':s' => $maxSort + 1,
+            ':st' => 'todo',
+            ':rid' => $rt['id'],
+            ':c' => $now,
+            ':u' => $now,
+        ]);
+    }
+}
+
+function recurring_pattern_matches(array $rt, DateTime $targetDate, DateTime $anchorDate): bool {
+    $patternType = $rt['pattern_type'];
+    $patternValue = (int)$rt['pattern_value'];
+
+    switch ($patternType) {
+        case 'day_of_month':
+            return (int)$targetDate->format('j') === $patternValue;
+
+        case 'day_of_week':
+            return (int)$targetDate->format('w') === $patternValue;
+
+        case 'interval_days':
+            $diff = (int)$anchorDate->diff($targetDate)->days;
+            return $diff % $patternValue === 0;
+
+        case 'interval_weeks':
+            $diff = (int)$anchorDate->diff($targetDate)->days;
+            return $diff % ($patternValue * 7) === 0;
+
+        case 'interval_months':
+            // Check if we're on an interval month and same day-of-month (adjusted for month length)
+            $anchorDay = (int)$anchorDate->format('j');
+            $targetDay = (int)$targetDate->format('j');
+            $targetLastDay = (int)$targetDate->format('t');
+
+            // Calculate months between dates
+            $monthsDiff = ((int)$targetDate->format('Y') - (int)$anchorDate->format('Y')) * 12
+                        + ((int)$targetDate->format('n') - (int)$anchorDate->format('n'));
+
+            if ($monthsDiff < 0 || $monthsDiff % $patternValue !== 0) {
+                return false;
+            }
+
+            // Check day matches (accounting for shorter months)
+            if ($anchorDay <= $targetLastDay) {
+                return $targetDay === $anchorDay;
+            } else {
+                // Anchor day doesn't exist in this month, use last day
+                return $targetDay === $targetLastDay;
+            }
+
+        default:
+            return false;
+    }
 }
 
 function add_task(PDO $pdo, string $date, string $text, string $priority): void {
@@ -986,4 +1127,54 @@ function set_cache(PDO $pdo, string $date, string $type, array $payload): void {
     } catch (Exception $e) {
         // Silently fail if table doesn't exist
     }
+}
+
+// Recurring task helpers
+function get_all_recurring_tasks(PDO $pdo): array {
+    try {
+        $stmt = $pdo->query('SELECT * FROM recurring_tasks ORDER BY is_active DESC, text');
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        return []; // Table might not exist yet
+    }
+}
+
+function add_recurring_task(PDO $pdo, string $text, string $notes, string $priority, string $patternType, int $patternValue, string $anchorDate, ?string $endDate): void {
+    $now = date('Y-m-d H:i:s');
+    $stmt = $pdo->prepare('INSERT INTO recurring_tasks (text, notes, priority, pattern_type, pattern_value, anchor_date, end_date, is_active, created_at, updated_at) VALUES (:t, :n, :p, :pt, :pv, :ad, :ed, 1, :c, :u)');
+    $stmt->execute([
+        ':t' => $text,
+        ':n' => $notes,
+        ':p' => $priority,
+        ':pt' => $patternType,
+        ':pv' => $patternValue,
+        ':ad' => $anchorDate,
+        ':ed' => $endDate ?: null,
+        ':c' => $now,
+        ':u' => $now,
+    ]);
+}
+
+function update_recurring_task(PDO $pdo, int $id, array $fields): void {
+    if (!$id) return;
+    $allowed = ['text', 'notes', 'priority', 'pattern_type', 'pattern_value', 'anchor_date', 'end_date', 'is_active'];
+    $setParts = [];
+    $params = [':id' => $id];
+    foreach ($fields as $k => $v) {
+        if (!in_array($k, $allowed, true)) continue;
+        $setParts[] = "$k = :$k";
+        $params[":$k"] = $v;
+    }
+    if (empty($setParts)) return;
+    $setParts[] = "updated_at = :u";
+    $params[':u'] = date('Y-m-d H:i:s');
+    $sql = 'UPDATE recurring_tasks SET ' . implode(', ', $setParts) . ' WHERE id = :id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+}
+
+function delete_recurring_task(PDO $pdo, int $id): void {
+    if (!$id) return;
+    $stmt = $pdo->prepare('DELETE FROM recurring_tasks WHERE id = :id');
+    $stmt->execute([':id' => $id]);
 }

@@ -18,10 +18,12 @@ CREATE TABLE tasks (
   priority ENUM('A','B','C','D') NOT NULL DEFAULT 'C',
   sort_order INT NOT NULL DEFAULT 0,
   status ENUM('todo','planning','in_progress','waiting','done') NOT NULL DEFAULT 'todo',
+  recurring_task_id INT UNSIGNED,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   INDEX idx_date (task_date),
-  INDEX idx_date_priority (task_date, priority)
+  INDEX idx_date_priority (task_date, priority),
+  INDEX idx_recurring (recurring_task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
@@ -104,5 +106,40 @@ CREATE TABLE hebrew_cache (
 --   payload JSON NOT NULL,
 --   updated_at DATETIME NOT NULL,
 --   PRIMARY KEY (cache_date, cache_type)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- Recurring tasks (templates that generate task instances)
+CREATE TABLE recurring_tasks (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  text TEXT NOT NULL,
+  notes TEXT,
+  priority ENUM('A','B','C','D') NOT NULL DEFAULT 'C',
+  pattern_type ENUM('day_of_month', 'day_of_week', 'interval_days', 'interval_weeks', 'interval_months') NOT NULL,
+  pattern_value INT NOT NULL,
+  anchor_date DATE NOT NULL,
+  end_date DATE,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Migration for existing databases:
+-- ALTER TABLE tasks ADD COLUMN recurring_task_id INT UNSIGNED AFTER status;
+-- ALTER TABLE tasks ADD INDEX idx_recurring (recurring_task_id);
+-- CREATE TABLE recurring_tasks (
+--   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+--   text TEXT NOT NULL,
+--   notes TEXT,
+--   priority ENUM('A','B','C','D') NOT NULL DEFAULT 'C',
+--   pattern_type ENUM('day_of_month', 'day_of_week', 'interval_days', 'interval_weeks', 'interval_months') NOT NULL,
+--   pattern_value INT NOT NULL,
+--   anchor_date DATE NOT NULL,
+--   end_date DATE,
+--   is_active TINYINT(1) NOT NULL DEFAULT 1,
+--   created_at DATETIME NOT NULL,
+--   updated_at DATETIME NOT NULL,
+--   INDEX idx_active (is_active)
 -- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
