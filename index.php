@@ -108,9 +108,9 @@ $today = date('Y-m-d');
     }
 
     body { font-family: var(--font-family); font-size: var(--font-size-base); margin:0; background: var(--bg-primary); color: var(--text-primary); }
-    header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border-primary); gap:16px; }
-    .header-left { font-weight:bold; white-space:nowrap; flex:1 1 0; min-width:0; }
-    .header-right { display:flex; align-items:center; gap:8px; flex:1 1 0; min-width:0; justify-content:flex-end; }
+    header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:10px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border-primary); gap:16px; }
+    .header-left { font-weight:bold; white-space:nowrap; }
+    .header-right { display:flex; align-items:center; gap:8px; justify-content:flex-end; }
     .header-right form { margin:0; }
 
     /* User menu */
@@ -130,7 +130,7 @@ $today = date('Y-m-d');
     .user-dropdown-logout { color:var(--accent-danger); }
     .user-dropdown-logout svg { color:var(--accent-danger); }
 
-    .date-controls-wrapper { flex:1; display:flex; justify-content:center; }
+    .date-controls-wrapper { display:flex; justify-content:center; }
     .date-controls { display:flex; align-items:center; gap:4px; }
     .date-controls button { padding:4px 8px; background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; cursor:pointer; }
     .date-controls button:hover { background:var(--bg-active); }
@@ -386,10 +386,10 @@ $today = date('Y-m-d');
     }
 
     @media (max-width: 768px) {
-      header { flex-wrap:wrap; padding:8px 12px; gap:8px; }
-      .header-left { order:1; flex:none; font-size:var(--font-size-small); }
-      .date-controls-wrapper { order:3; width:100%; flex:none; justify-content:center; margin-top:4px; }
-      .header-right { order:2; flex:none; margin-left:auto; }
+      header { grid-template-columns:1fr auto; grid-template-rows:auto auto; padding:8px 12px; gap:8px; }
+      .header-left { font-size:var(--font-size-small); }
+      .date-controls-wrapper { grid-column:1 / -1; justify-content:center; }
+      .header-right { justify-self:end; }
       .header-actions { display:none; }
       .date-controls { flex-wrap:wrap; justify-content:center; gap:4px; }
       .date-info-row { flex-direction:column; align-items:center; gap:2px; }
