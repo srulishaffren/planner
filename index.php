@@ -327,6 +327,28 @@ $today = date('Y-m-d');
     .recurring-item button:hover { background:var(--accent-danger); }
     .recurring-empty { color:var(--text-faint); font-style:italic; }
 
+    /* Parsha modal */
+    .parsha-loading { color:var(--text-muted); font-style:italic; text-align:center; padding:20px; }
+    .parsha-header { text-align:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-secondary); }
+    .parsha-name { font-size:1.4rem; font-weight:bold; color:var(--text-primary); }
+    .parsha-name-hebrew { font-size:1.2rem; color:var(--text-secondary); margin-top:4px; }
+    .parsha-ref { font-size:var(--font-size-small); color:var(--text-muted); margin-top:4px; }
+    .parsha-section { margin-bottom:16px; }
+    .parsha-section-title { font-weight:600; color:var(--text-primary); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+    .parsha-aliyah { background:var(--bg-tertiary); border:1px solid var(--border-secondary); border-radius:6px; padding:12px; }
+    .parsha-aliyah-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .parsha-aliyah-num { font-weight:600; color:var(--accent-primary); }
+    .parsha-aliyah-ref { font-size:var(--font-size-small); color:var(--text-secondary); }
+    .parsha-aliyah-link { display:inline-block; margin-top:8px; padding:6px 12px; background:var(--accent-primary); color:#fff; border-radius:4px; text-decoration:none; font-size:var(--font-size-small); }
+    .parsha-aliyah-link:hover { opacity:0.9; }
+    .parsha-links { display:flex; flex-direction:column; gap:8px; }
+    .parsha-link { display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--bg-tertiary); border:1px solid var(--border-secondary); border-radius:4px; color:var(--text-primary); text-decoration:none; }
+    .parsha-link:hover { background:var(--bg-hover); border-color:var(--accent-primary); }
+    .parsha-link-icon { font-size:1.2rem; }
+    .parsha-link-text { flex:1; }
+    .parsha-link-arrow { color:var(--text-muted); }
+    .parsha-day-indicator { font-size:var(--font-size-xs); color:var(--accent-success); background:rgba(90,170,85,0.15); padding:2px 6px; border-radius:3px; }
+
     /* Settings modal */
     .settings-form { display:flex; flex-direction:column; gap:12px; }
     .settings-row { display:flex; flex-direction:column; gap:4px; }
@@ -474,6 +496,7 @@ $today = date('Y-m-d');
     <div class="header-actions">
       <button id="today-btn">Today</button>
       <button id="zmanim-btn" title="Zmanim">Zmanim</button>
+      <button id="parsha-btn" title="Weekly Parsha">Parsha</button>
       <button id="search-btn" title="Search journals">Search</button>
       <button id="month-index-btn" title="Monthly index">Index</button>
       <button id="yartzheits-btn" title="Manage Yartzheits">Yartzheits</button>
@@ -710,6 +733,19 @@ $today = date('Y-m-d');
         </div>
       </form>
       <div class="recurring-list" id="recurring-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Parsha Modal -->
+<div class="modal-overlay" id="parsha-modal">
+  <div class="modal" style="max-width:550px;">
+    <div class="modal-header">
+      <h2>📖 Weekly Parsha</h2>
+      <button id="parsha-modal-close">&times;</button>
+    </div>
+    <div class="modal-body" id="parsha-content">
+      <div class="parsha-loading">Loading parsha information...</div>
     </div>
   </div>
 </div>
@@ -2447,6 +2483,131 @@ function deleteRecurringTask(id) {
   });
 }
 
+// Parsha modal
+let parshaData = null;
+
+function openParshaModal() {
+  document.getElementById('parsha-modal').classList.add('open');
+  loadParshaData();
+}
+
+function closeParshaModal() {
+  document.getElementById('parsha-modal').classList.remove('open');
+}
+
+function loadParshaData() {
+  const content = document.getElementById('parsha-content');
+  content.innerHTML = '<div class="parsha-loading">Loading parsha information...</div>';
+
+  fetch('https://www.sefaria.org/api/calendars')
+    .then(r => r.json())
+    .then(data => {
+      // Find Parashat Hashavua
+      const parsha = data.calendar_items.find(item => item.title.en === 'Parashat Hashavua');
+      if (parsha) {
+        parshaData = parsha;
+        renderParshaContent(parsha);
+      } else {
+        content.innerHTML = '<div class="parsha-loading">Could not load parsha data</div>';
+      }
+    })
+    .catch(err => {
+      content.innerHTML = '<div class="parsha-loading">Error loading parsha: ' + err.message + '</div>';
+    });
+}
+
+function renderParshaContent(parsha) {
+  const content = document.getElementById('parsha-content');
+  const aliyot = parsha.extraDetails?.aliyot || [];
+
+  // Determine today's aliyah (Sunday=0 -> aliyah 1, Saturday=6 -> aliyah 7)
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sunday, 6=Saturday
+  const todayAliyahIndex = dayOfWeek; // 0-6 maps to aliyot 1-7
+  const aliyahNames = ['Rishon', 'Sheni', 'Shlishi', 'Revi\'i', 'Chamishi', 'Shishi', 'Shevi\'i', 'Maftir'];
+
+  // Parse the parsha name and reference
+  const parshaName = parsha.displayValue.en || parsha.title.en;
+  const parshaNameHebrew = parsha.displayValue.he || parsha.title.he;
+  const parshaRef = parsha.ref || '';
+
+  let html = `
+    <div class="parsha-header">
+      <div class="parsha-name">${parshaName}</div>
+      <div class="parsha-name-hebrew">${parshaNameHebrew}</div>
+      <div class="parsha-ref">${parshaRef}</div>
+    </div>
+  `;
+
+  // Today's Aliyah section
+  if (aliyot.length > todayAliyahIndex) {
+    const todayAliyah = aliyot[todayAliyahIndex];
+    const aliyahRef = todayAliyah.replace(/\./g, ' ').replace(/-/g, ' - ');
+    const sefariaUrl = 'https://www.sefaria.org/' + todayAliyah.replace(/ /g, '_') + '?lang=bi&with=Targum%20Onkelos&lang2=en';
+
+    html += `
+      <div class="parsha-section">
+        <div class="parsha-section-title">
+          📖 Today's Reading (Ma'avir Sedra)
+          <span class="parsha-day-indicator">${aliyahNames[todayAliyahIndex]}</span>
+        </div>
+        <div class="parsha-aliyah">
+          <div class="parsha-aliyah-header">
+            <span class="parsha-aliyah-num">Aliyah ${todayAliyahIndex + 1}</span>
+            <span class="parsha-aliyah-ref">${aliyahRef}</span>
+          </div>
+          <a href="${sefariaUrl}" target="_blank" class="parsha-aliyah-link">
+            Read on Sefaria (Hebrew + Targum + English) →
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
+  // Quick Links section
+  const parshaSlug = parshaName.replace('Parashat ', '').replace(/ /g, '_');
+  html += `
+    <div class="parsha-section">
+      <div class="parsha-section-title">🔗 Quick Links</div>
+      <div class="parsha-links">
+        <a href="https://www.sefaria.org/${parshaSlug}?lang=bi" target="_blank" class="parsha-link">
+          <span class="parsha-link-icon">📜</span>
+          <span class="parsha-link-text">Full Parsha on Sefaria</span>
+          <span class="parsha-link-arrow">→</span>
+        </a>
+        <a href="https://www.sefaria.org/topics/parashat-${parshaSlug.toLowerCase()}" target="_blank" class="parsha-link">
+          <span class="parsha-link-icon">💬</span>
+          <span class="parsha-link-text">Divrei Torah & Sheets</span>
+          <span class="parsha-link-arrow">→</span>
+        </a>
+        <a href="https://www.sefaria.org/${parshaRef.replace(/ /g, '_').replace(/:/g, '.')}?lang=bi&with=all" target="_blank" class="parsha-link">
+          <span class="parsha-link-icon">📚</span>
+          <span class="parsha-link-text">Commentaries (Rashi, etc.)</span>
+          <span class="parsha-link-arrow">→</span>
+        </a>
+      </div>
+    </div>
+  `;
+
+  // All Aliyot section (collapsed by default)
+  if (aliyot.length > 0) {
+    html += `
+      <div class="parsha-section">
+        <div class="parsha-section-title">📋 All Aliyot</div>
+        <div style="font-size:var(--font-size-small); color:var(--text-secondary);">
+    `;
+    aliyot.forEach((aliyah, idx) => {
+      const isToday = idx === todayAliyahIndex;
+      const style = isToday ? 'font-weight:600; color:var(--accent-primary);' : '';
+      const ref = aliyah.replace(/\./g, ' ').replace(/-/g, ' - ');
+      html += `<div style="${style}">${idx + 1}. ${aliyahNames[idx]}: ${ref}${isToday ? ' ← Today' : ''}</div>`;
+    });
+    html += '</div></div>';
+  }
+
+  content.innerHTML = html;
+}
+
 // Settings modal
 function openSettingsModal() {
   document.getElementById('settings-modal').classList.add('open');
@@ -2689,6 +2850,13 @@ document.getElementById('recurring-form').addEventListener('submit', (e) => {
     document.getElementById('recurring-pattern-type').value = '';
     document.getElementById('recurring-pattern-value').value = '';
   }
+});
+
+// Parsha modal events
+document.getElementById('parsha-btn').addEventListener('click', openParshaModal);
+document.getElementById('parsha-modal-close').addEventListener('click', closeParshaModal);
+document.getElementById('parsha-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'parsha-modal') closeParshaModal();
 });
 
 // Settings modal events

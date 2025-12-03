@@ -355,8 +355,8 @@ test.describe('UI Layout', () => {
       const headerCenter = headerBox.x + headerBox.width / 2;
       const dateCenter = dateBox.x + dateBox.width / 2;
 
-      // Date should be within 250px of center (grid layout centers between left/right sections)
-      expect(Math.abs(headerCenter - dateCenter)).toBeLessThan(250);
+      // Date should be within 300px of center (grid layout centers between left/right sections)
+      expect(Math.abs(headerCenter - dateCenter)).toBeLessThan(300);
     }
   });
 
