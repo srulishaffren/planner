@@ -305,6 +305,15 @@ try {
             echo json_encode(['success' => true, 'recurring_tasks' => $recurring]);
             break;
 
+        case 'upload_profile_photo':
+            if (empty($_FILES['file'])) {
+                echo json_encode(['success' => false, 'error' => 'No file uploaded']);
+                break;
+            }
+            $result = upload_profile_photo($_FILES['file']);
+            echo json_encode($result);
+            break;
+
         default:
             echo json_encode(['success' => false, 'error' => 'Unknown action']);
     }
@@ -1177,4 +1186,96 @@ function delete_recurring_task(PDO $pdo, int $id): void {
     if (!$id) return;
     $stmt = $pdo->prepare('DELETE FROM recurring_tasks WHERE id = :id');
     $stmt->execute([':id' => $id]);
+}
+
+function upload_profile_photo(array $file): array {
+    global $uploadDir;
+
+    // Validate file upload
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $errors = [
+            UPLOAD_ERR_INI_SIZE => 'File too large (server limit)',
+            UPLOAD_ERR_FORM_SIZE => 'File too large (form limit)',
+            UPLOAD_ERR_PARTIAL => 'File only partially uploaded',
+            UPLOAD_ERR_NO_FILE => 'No file uploaded',
+        ];
+        return ['success' => false, 'error' => $errors[$file['error']] ?? 'Upload error'];
+    }
+
+    // Max 2MB for profile photos
+    if ($file['size'] > 2 * 1024 * 1024) {
+        return ['success' => false, 'error' => 'File too large (max 2MB)'];
+    }
+
+    // Only allow images
+    $mimeType = mime_content_type($file['tmp_name']);
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($mimeType, $allowedTypes, true)) {
+        return ['success' => false, 'error' => 'Only image files allowed (JPEG, PNG, GIF, WebP)'];
+    }
+
+    // Ensure profile directory exists
+    $profileDir = $uploadDir . '/profile';
+    if (!is_dir($profileDir)) {
+        if (!mkdir($profileDir, 0755, true)) {
+            return ['success' => false, 'error' => 'Could not create profile directory'];
+        }
+    }
+
+    // Always save as avatar.jpg (overwrite existing)
+    $destPath = $profileDir . '/avatar.jpg';
+
+    // Convert to JPEG for consistency
+    $image = null;
+    switch ($mimeType) {
+        case 'image/jpeg':
+            $image = imagecreatefromjpeg($file['tmp_name']);
+            break;
+        case 'image/png':
+            $image = imagecreatefrompng($file['tmp_name']);
+            break;
+        case 'image/gif':
+            $image = imagecreatefromgif($file['tmp_name']);
+            break;
+        case 'image/webp':
+            $image = imagecreatefromwebp($file['tmp_name']);
+            break;
+    }
+
+    if (!$image) {
+        return ['success' => false, 'error' => 'Could not process image'];
+    }
+
+    // Resize to max 200x200 while maintaining aspect ratio
+    $origWidth = imagesx($image);
+    $origHeight = imagesy($image);
+    $maxSize = 200;
+
+    if ($origWidth > $maxSize || $origHeight > $maxSize) {
+        if ($origWidth > $origHeight) {
+            $newWidth = $maxSize;
+            $newHeight = (int)($origHeight * $maxSize / $origWidth);
+        } else {
+            $newHeight = $maxSize;
+            $newWidth = (int)($origWidth * $maxSize / $origHeight);
+        }
+
+        $resized = imagecreatetruecolor($newWidth, $newHeight);
+        imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
+        imagedestroy($image);
+        $image = $resized;
+    }
+
+    // Save as JPEG with quality 85
+    if (!imagejpeg($image, $destPath, 85)) {
+        imagedestroy($image);
+        return ['success' => false, 'error' => 'Failed to save image'];
+    }
+
+    imagedestroy($image);
+
+    return [
+        'success' => true,
+        'path' => 'uploads/profile/avatar.jpg?t=' . time()
+    ];
 }

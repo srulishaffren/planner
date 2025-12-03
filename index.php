@@ -108,10 +108,27 @@ $today = date('Y-m-d');
     }
 
     body { font-family: var(--font-family); font-size: var(--font-size-base); margin:0; background: var(--bg-primary); color: var(--text-primary); }
-    header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border-primary); }
-    header-left { font-weight:bold; }
-    .header-left { font-weight:bold; }
+    header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border-primary); gap:16px; }
+    .header-left { font-weight:bold; white-space:nowrap; flex:1 1 0; min-width:0; }
+    .header-right { display:flex; align-items:center; gap:8px; flex:1 1 0; min-width:0; justify-content:flex-end; }
     .header-right form { margin:0; }
+
+    /* User menu */
+    .user-menu { position:relative; }
+    .user-menu-btn { width:40px; height:40px; border-radius:50%; background:var(--bg-hover); border:2px solid var(--border-input); cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .user-menu-btn:hover { border-color:var(--accent-primary); }
+    .user-icon { width:24px; height:24px; color:var(--text-secondary); }
+    .user-avatar { width:100%; height:100%; object-fit:cover; }
+    .user-dropdown { position:absolute; top:100%; right:0; margin-top:8px; background:var(--bg-tertiary); border:1px solid var(--border-input); border-radius:8px; min-width:200px; box-shadow:var(--shadow-dropdown); display:none; z-index:1001; overflow:hidden; }
+    .user-dropdown.open { display:block; }
+    .user-dropdown-header { padding:12px 16px; border-bottom:1px solid var(--border-secondary); }
+    .user-dropdown-name { font-weight:600; color:var(--text-primary); }
+    .user-dropdown-item { display:flex; align-items:center; gap:10px; padding:10px 16px; color:var(--text-primary); cursor:pointer; background:none; border:none; width:100%; text-align:left; font-size:var(--font-size-base); }
+    .user-dropdown-item:hover { background:var(--bg-hover); }
+    .user-dropdown-item svg { width:18px; height:18px; color:var(--text-secondary); flex-shrink:0; }
+    .user-dropdown-divider { height:1px; background:var(--border-secondary); margin:4px 0; }
+    .user-dropdown-logout { color:var(--accent-danger); }
+    .user-dropdown-logout svg { color:var(--accent-danger); }
 
     .date-controls-wrapper { flex:1; display:flex; justify-content:center; }
     .date-controls { display:flex; align-items:center; gap:4px; }
@@ -233,7 +250,7 @@ $today = date('Y-m-d');
 
     /* Header buttons */
     .header-actions { display:flex; gap:8px; align-items:center; }
-    .header-actions button { padding:6px 12px; background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; cursor:pointer; font-size:var(--font-size-small); }
+    .header-actions button { padding:6px 12px; background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; cursor:pointer; font-size:var(--font-size-small); white-space:nowrap; }
     .header-actions button:hover { background:var(--bg-active); }
 
     /* Hebrew date and special days */
@@ -362,6 +379,39 @@ $today = date('Y-m-d');
     .theme-custom-row select { flex:1; background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-primary); padding:6px 8px; border-radius:4px; }
     .font-size-display { min-width:40px; text-align:right; font-size:var(--font-size-small); color:var(--text-secondary); }
 
+    /* Responsive styles */
+    @media (max-width: 1024px) {
+      main { flex-direction:column; }
+      .column { min-height:auto; }
+    }
+
+    @media (max-width: 768px) {
+      header { flex-wrap:wrap; padding:8px 12px; gap:8px; }
+      .header-left { order:1; flex:none; font-size:var(--font-size-small); }
+      .date-controls-wrapper { order:3; width:100%; flex:none; justify-content:center; margin-top:4px; }
+      .header-right { order:2; flex:none; margin-left:auto; }
+      .header-actions { display:none; }
+      .date-controls { flex-wrap:wrap; justify-content:center; gap:4px; }
+      .date-info-row { flex-direction:column; align-items:center; gap:2px; }
+      #pretty-date { font-size:1.1rem; }
+      .hebrew-date { font-size:var(--font-size-small); }
+      main { padding:8px; gap:8px; }
+      .column { padding:10px; }
+      h2 { font-size:1rem; }
+      .add-task-form { flex-wrap:wrap; }
+      .add-task-form input[type="text"] { flex:1; min-width:150px; }
+      #journal-content { min-height:150px; }
+      .modal { margin:10px; max-height:calc(100vh - 20px); }
+      .modal-body { padding:12px; }
+    }
+
+    @media (max-width: 480px) {
+      .date-controls button { padding:4px 6px; font-size:var(--font-size-small); }
+      .task-item { flex-direction:column; align-items:flex-start; gap:6px; }
+      .task-actions { width:100%; justify-content:flex-end; }
+      .user-dropdown { right:-10px; min-width:180px; }
+    }
+
   </style>
 </head>
 <body>
@@ -378,8 +428,6 @@ $today = date('Y-m-d');
         <div id="special-day-badges" class="special-day-badges"></div>
       </div>
       <button id="next-day" class="date-nav-btn" title="Next day">&rarr;</button>
-      <button id="today-btn">Today</button>
-      <button id="zmanim-btn" title="Zmanim">Zmanim</button>
 
       <div class="calendar-dropdown" id="calendar-dropdown">
         <div class="calendar-header">
@@ -404,18 +452,55 @@ $today = date('Y-m-d');
 
   <div class="header-right">
     <div class="header-actions">
+      <button id="today-btn">Today</button>
+      <button id="zmanim-btn" title="Zmanim">Zmanim</button>
       <button id="search-btn" title="Search journals">Search</button>
       <button id="month-index-btn" title="Monthly index">Index</button>
       <button id="yartzheits-btn" title="Manage Yartzheits">Yartzheits</button>
       <button id="recurring-btn" title="Recurring Tasks">Recurring</button>
-      <button id="settings-btn" title="Settings">Settings</button>
-      <button id="export-btn" title="Export all data">Export</button>
     </div>
-    <form method="post" action="logout.php" style="margin-left:8px;">
-      <button type="submit">Logout</button>
-    </form>
+    <div class="user-menu" id="user-menu">
+      <button class="user-menu-btn" id="user-menu-btn" title="User menu">
+        <?php
+        $profilePath = __DIR__ . '/uploads/profile/avatar.jpg';
+        if (file_exists($profilePath)):
+        ?>
+          <img src="uploads/profile/avatar.jpg?t=<?php echo filemtime($profilePath); ?>" alt="Profile" class="user-avatar">
+        <?php else: ?>
+          <svg class="user-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+        <?php endif; ?>
+      </button>
+      <div class="user-dropdown" id="user-dropdown">
+        <div class="user-dropdown-header">
+          <span class="user-dropdown-name"><?php echo htmlspecialchars($appUsername); ?></span>
+        </div>
+        <div class="user-dropdown-item" id="profile-photo-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+          Change Photo
+        </div>
+        <div class="user-dropdown-item" id="settings-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          Settings
+        </div>
+        <div class="user-dropdown-item" id="export-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Export Data
+        </div>
+        <div class="user-dropdown-divider"></div>
+        <form method="post" action="logout.php" style="margin:0;">
+          <button type="submit" class="user-dropdown-item user-dropdown-logout">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+            Logout
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
 </header>
+
+<input type="file" id="profile-photo-input" accept="image/*" style="display:none;">
 
 <main>
   <div class="column" id="tasks-column">
@@ -1121,6 +1206,13 @@ function updatePrettyDate() {
   const span = document.getElementById('pretty-date');
   if (span) {
     span.textContent = formatPrettyDate(currentDate);
+  }
+  // Update month index button text
+  const monthIndexBtn = document.getElementById('month-index-btn');
+  if (monthIndexBtn) {
+    const d = new Date(currentDate + 'T00:00:00');
+    const monthName = d.toLocaleDateString('en-US', { month: 'long' });
+    monthIndexBtn.textContent = monthName + ' Index';
   }
 }
 
@@ -2494,7 +2586,10 @@ document.getElementById('recurring-form').addEventListener('submit', (e) => {
 });
 
 // Settings modal events
-document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
+document.getElementById('settings-btn').addEventListener('click', () => {
+  closeUserDropdown();
+  openSettingsModal();
+});
 document.getElementById('settings-modal-close').addEventListener('click', closeSettingsModal);
 document.getElementById('settings-cancel').addEventListener('click', closeSettingsModal);
 document.getElementById('settings-modal').addEventListener('click', (e) => {
@@ -2506,6 +2601,7 @@ document.getElementById('settings-form').addEventListener('submit', (e) => {
 });
 
 document.getElementById('export-btn').addEventListener('click', () => {
+  closeUserDropdown();
   apiPost({ action: 'export_all' }).then(data => {
     if (!data.success) {
       alert('Export failed');
@@ -2519,6 +2615,59 @@ document.getElementById('export-btn').addEventListener('click', () => {
     a.click();
     URL.revokeObjectURL(url);
   });
+});
+
+// User menu events
+function toggleUserDropdown() {
+  document.getElementById('user-dropdown').classList.toggle('open');
+}
+function closeUserDropdown() {
+  document.getElementById('user-dropdown').classList.remove('open');
+}
+
+document.getElementById('user-menu-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleUserDropdown();
+});
+
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('user-menu').contains(e.target)) {
+    closeUserDropdown();
+  }
+});
+
+document.getElementById('profile-photo-btn').addEventListener('click', () => {
+  document.getElementById('profile-photo-input').click();
+});
+
+document.getElementById('profile-photo-input').addEventListener('change', (e) => {
+  if (e.target.files.length === 0) return;
+  const file = e.target.files[0];
+  const formData = new FormData();
+  formData.append('action', 'upload_profile_photo');
+  formData.append('file', file);
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  fetch('api.php', {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': csrfToken },
+    credentials: 'same-origin',
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      // Update the avatar image
+      const btn = document.getElementById('user-menu-btn');
+      btn.innerHTML = '<img src="' + data.path + '?t=' + Date.now() + '" alt="Profile" class="user-avatar">';
+      closeUserDropdown();
+    } else {
+      alert('Upload failed: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(err => alert('Upload error: ' + err.message));
+
+  e.target.value = ''; // Reset input
 });
 
 // Theme control events
