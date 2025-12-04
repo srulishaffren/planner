@@ -1,5 +1,9 @@
 # Secrets - never commit
 config.php
+.deploy.conf
+
+# Claude Code local files
+.claude/
 
 # User data
 uploads/

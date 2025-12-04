@@ -362,6 +362,8 @@ $today = date('Y-m-d');
     .settings-actions button { padding:8px 16px; border-radius:4px; cursor:pointer; font-size:0.9rem; }
     .settings-actions .btn-save { background:var(--accent-primary); border:none; color:#fff; }
     .settings-actions .btn-cancel { background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); }
+    .checkbox-label { display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text-primary); font-size:0.95rem; }
+    .checkbox-label input[type="checkbox"] { width:16px; height:16px; accent-color:var(--accent-primary); cursor:pointer; }
 
     .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:4px; }
     .status-todo { background:var(--text-muted); }
@@ -802,6 +804,17 @@ $today = date('Y-m-d');
           <div class="theme-custom-row">
             <label>Accent Color</label>
             <input type="color" id="theme-accent-primary" value="#4a90e2">
+          </div>
+        </div>
+
+        <!-- Display Section -->
+        <div class="settings-section">
+          <div class="settings-section-title">Display</div>
+          <div class="settings-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="setting-hide-done">
+              <span>Hide done tasks</span>
+            </label>
           </div>
         </div>
 
@@ -1392,8 +1405,9 @@ function renderTasks() {
     list.addEventListener('dragover', handleDragOver);
     list.addEventListener('drop', handleDrop);
 
+    const hideDone = localStorage.getItem('planner_hide_done') === 'true';
     const filtered = tasks
-      .filter(t => t.priority === priority)
+      .filter(t => t.priority === priority && (!hideDone || t.status !== 'done'))
       .sort((a, b) => a.sort_order - b.sort_order);
 
     filtered.forEach(task => {
@@ -1468,7 +1482,8 @@ function renderTasks() {
       statusDot.className = 'status-dot status-' + task.status.replace(' ','_');
 
       const completeBtn = document.createElement('button');
-      completeBtn.textContent = 'Done';
+      completeBtn.textContent = '✓';
+      completeBtn.title = 'Mark as done';
       completeBtn.addEventListener('click', () => {
         updateTask(task.id, { status: 'done' });
       });
@@ -2662,6 +2677,7 @@ function populateSettingsForm() {
   document.getElementById('setting-longitude').value = appSettings.longitude || '';
   document.getElementById('setting-timezone').value = appSettings.timezone || 'Asia/Jerusalem';
   document.getElementById('setting-elevation').value = appSettings.elevation || '';
+  document.getElementById('setting-hide-done').checked = localStorage.getItem('planner_hide_done') === 'true';
 }
 
 function saveSettings() {
@@ -2673,6 +2689,10 @@ function saveSettings() {
     elevation: document.getElementById('setting-elevation').value.trim(),
   };
 
+  // Save display settings to localStorage
+  const hideDone = document.getElementById('setting-hide-done').checked;
+  localStorage.setItem('planner_hide_done', hideDone);
+
   apiPost({ action: 'save_settings', settings: settings }).then(data => {
     if (!data.success) {
       showToast('Error saving settings', 'error');
@@ -2681,6 +2701,8 @@ function saveSettings() {
       closeSettingsModal();
       // Refresh zmanim if modal was open
       loadHebrewInfo();
+      // Re-render tasks to apply hide-done setting
+      renderTasks();
     }
   });
 }

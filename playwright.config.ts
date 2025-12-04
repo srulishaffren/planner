@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Default to localhost for development; set TEST_URL for production testing
+const baseURL = process.env.TEST_URL || 'http://localhost:8080';
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
@@ -8,7 +11,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: process.env.TEST_URL || 'https://your-site-url.com',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

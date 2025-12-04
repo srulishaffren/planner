@@ -8,8 +8,10 @@
   },
   "scripts": {
     "test": "playwright test",
+    "test:prod": "TEST_URL='https://srulithegrate:ddhk0na4QQ!!@gapaika.com/planner' playwright test",
     "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "dev": "php -S localhost:8080"
   },
   "repository": {
     "type": "git",

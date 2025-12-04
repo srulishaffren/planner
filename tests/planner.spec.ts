@@ -1,13 +1,12 @@
 import { test, expect, Page } from '@playwright/test';
 
-// Site configuration
-const BASE_URL = 'https://srulithegrate:ddhk0na4QQ!!@gapaika.com/planner';
+// App credentials (HTTP Basic Auth is handled via TEST_URL env var for production)
 const APP_USERNAME = 'sruli';
 const APP_PASSWORD = 'ContentlySleeveVoyage#@!';
 
 // Helper to login to the app
 async function login(page: Page) {
-  await page.goto(BASE_URL);
+  await page.goto('/');
   await page.fill('input[name="username"]', APP_USERNAME);
   await page.fill('input[name="password"]', APP_PASSWORD);
   await page.click('button[type="submit"]');
@@ -18,13 +17,13 @@ async function login(page: Page) {
 
 test.describe('Authentication', () => {
   test('should show login form', async ({ page }) => {
-    await page.goto(BASE_URL);
+    await page.goto('/');
     await expect(page.locator('input[name="username"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
   });
 
   test('should reject invalid credentials', async ({ page }) => {
-    await page.goto(BASE_URL);
+    await page.goto('/');
     await page.fill('input[name="username"]', 'wronguser');
     await page.fill('input[name="password"]', 'wrongpass');
     await page.click('button[type="submit"]');
@@ -159,7 +158,7 @@ test.describe('Task Management', () => {
 
     // Find the task and click Done
     const taskItem = page.locator(`.task-item:has-text("${taskText}")`);
-    await taskItem.locator('button:has-text("Done")').click();
+    await taskItem.locator('button:has-text("✓")').click();
     await page.waitForTimeout(500);
 
     // Verify status changed to done (dropdown value)
