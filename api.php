@@ -512,7 +512,8 @@ function copy_task(PDO $pdo, int $id, string $targetDate): int {
 }
 
 function get_uncompleted_tasks(PDO $pdo, string $date): array {
-    $stmt = $pdo->prepare('SELECT id, task_date, text, notes, priority, sort_order, status FROM tasks WHERE task_date = :d AND status != :done ORDER BY priority, sort_order, id');
+    // Exclude tasks that are done or have already been forwarded
+    $stmt = $pdo->prepare('SELECT id, task_date, text, notes, priority, sort_order, status FROM tasks WHERE task_date = :d AND status != :done AND forwarded_at IS NULL ORDER BY priority, sort_order, id');
     $stmt->execute([':d' => $date, ':done' => 'done']);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -546,6 +547,11 @@ function carry_forward_tasks(PDO $pdo, string $fromDate, string $toDate): int {
             ':c' => $now,
             ':u' => $now,
         ]);
+
+        // Mark the original task as forwarded so it won't be forwarded again
+        $stmt = $pdo->prepare('UPDATE tasks SET forwarded_at = :f WHERE id = :id');
+        $stmt->execute([':f' => $now, ':id' => $task['id']]);
+
         $copied++;
     }
 

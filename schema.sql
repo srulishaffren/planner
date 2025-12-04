@@ -3,6 +3,7 @@
 
 -- Migration for existing databases (run this if you already have the tasks table):
 -- ALTER TABLE tasks ADD COLUMN notes TEXT AFTER text;
+-- ALTER TABLE tasks ADD COLUMN forwarded_at DATETIME AFTER recurring_task_id;
 
 DROP TABLE IF EXISTS attachments;
 DROP TABLE IF EXISTS journal_entries;
@@ -19,6 +20,7 @@ CREATE TABLE tasks (
   sort_order INT NOT NULL DEFAULT 0,
   status ENUM('todo','planning','in_progress','waiting','done') NOT NULL DEFAULT 'todo',
   recurring_task_id INT UNSIGNED,
+  forwarded_at DATETIME,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   INDEX idx_date (task_date),
