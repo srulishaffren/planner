@@ -2035,8 +2035,8 @@ function renderTasks() {
 let draggedId = null;
 
 function handleDragStart(e) {
-  // Only allow drag from the handle
-  if (!e.target.classList.contains('drag-handle')) {
+  // Only allow drag from the handle (use closest to handle clicks on child nodes)
+  if (!e.target.closest('.drag-handle')) {
     e.preventDefault();
     return;
   }
