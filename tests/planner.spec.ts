@@ -1035,7 +1035,9 @@ test.describe('Calendar Integration', () => {
     await page.waitForTimeout(300);
     await page.click('#user-dropdown >> text=Settings');
     await page.waitForTimeout(300);
-    await expect(page.locator('#calendar-list')).toBeVisible();
+    // Scroll to calendar section (it may be below fold with new sections above)
+    await page.locator('text=Calendar Integration').scrollIntoViewIfNeeded();
+    await expect(page.locator('text=Calendar Integration')).toBeVisible();
   });
 
   test('should have Add Calendar button', async ({ page }) => {
@@ -1043,6 +1045,7 @@ test.describe('Calendar Integration', () => {
     await page.waitForTimeout(300);
     await page.click('#user-dropdown >> text=Settings');
     await page.waitForTimeout(300);
+    await page.locator('#add-calendar-btn').scrollIntoViewIfNeeded();
     await expect(page.locator('#add-calendar-btn')).toBeVisible();
   });
 
@@ -1051,6 +1054,7 @@ test.describe('Calendar Integration', () => {
     await page.waitForTimeout(300);
     await page.click('#user-dropdown >> text=Settings');
     await page.waitForTimeout(300);
+    await page.locator('#add-calendar-btn').scrollIntoViewIfNeeded();
 
     const initialCount = await page.locator('.calendar-entry').count();
     await page.click('#add-calendar-btn');

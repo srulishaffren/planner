@@ -245,6 +245,32 @@ try {
             echo json_encode(['success' => true, 'settings' => $allSettings]);
             break;
 
+        case 'set_secrets_password':
+            $password = $input['password'] ?? '';
+            if (strlen($password) < 4) {
+                echo json_encode(['success' => false, 'error' => 'Password must be at least 4 characters']);
+                break;
+            }
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            save_settings($pdo, ['secrets_password_hash' => $hash]);
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'verify_secrets_password':
+            $password = $input['password'] ?? '';
+            $settings = get_all_settings($pdo);
+            $hash = $settings['secrets_password_hash'] ?? '';
+            if (empty($hash)) {
+                echo json_encode(['success' => false, 'error' => 'No secrets password set']);
+                break;
+            }
+            if (password_verify($password, $hash)) {
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Incorrect password']);
+            }
+            break;
+
         case 'change_password':
             $currentPassword = $input['current_password'] ?? '';
             $newPassword = $input['new_password'] ?? '';
@@ -1170,7 +1196,7 @@ function get_all_settings(PDO $pdo): array {
 }
 
 function save_settings(PDO $pdo, array $settings): void {
-    $allowedKeys = ['location_name', 'latitude', 'longitude', 'timezone', 'elevation', 'calendar_ics_url', 'calendar_feeds'];
+    $allowedKeys = ['location_name', 'latitude', 'longitude', 'timezone', 'elevation', 'calendar_ics_url', 'calendar_feeds', 'secrets_password_hash'];
     $now = date('Y-m-d H:i:s');
 
     foreach ($settings as $key => $value) {

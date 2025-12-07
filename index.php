@@ -211,8 +211,13 @@ $today = date('Y-m-d');
     .journal-search input:focus { border-color:var(--accent-primary); outline:none; }
     .journal-search button { padding:4px 8px; background:var(--bg-tertiary); border:1px solid var(--border-input); border-radius:4px; cursor:pointer; }
     .journal-search button:hover { background:var(--bg-hover); }
-    .journal-controls { margin-top:8px; display:flex; justify-content:flex-end; }
+    .journal-controls { margin-top:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
     .journal-controls button { padding:4px 8px; background:var(--accent-primary); border:none; color:#fff; border-radius:4px; cursor:pointer; }
+    .secrets-unlock { display:none; align-items:center; gap:4px; }
+    .secrets-unlock.visible { display:flex; }
+    .secrets-unlock input { padding:4px 8px; background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; font-size:var(--font-size-small); width:120px; }
+    .secrets-unlock button { font-size:var(--font-size-small); }
+    .secrets-unlock .unlocked { background:var(--accent-success); }
 
     .search-result { padding:12px; border-bottom:1px solid var(--border-secondary); cursor:pointer; }
     .search-result:hover { background:var(--bg-hover); }
@@ -652,6 +657,11 @@ $today = date('Y-m-d');
     <textarea id="journal-content" placeholder="Daily notes..."></textarea>
     <div class="journal-controls">
       <button id="save-journal">Save journal</button>
+      <div class="secrets-unlock" id="secrets-unlock">
+        <input type="password" id="secrets-unlock-password" placeholder="Secrets password">
+        <button type="button" id="secrets-unlock-btn">🔓 Unlock</button>
+        <button type="button" id="secrets-lock-btn" style="display:none;">🔒 Lock</button>
+      </div>
     </div>
 
     <div class="dropzone" id="dropzone">
@@ -982,6 +992,21 @@ $today = date('Y-m-d');
               <input type="number" id="setting-elevation" placeholder="e.g., 829">
             </div>
           </div>
+        </div>
+
+        <!-- Journal Secrets Section -->
+        <div class="settings-section">
+          <div class="settings-section-title">Journal Secrets</div>
+          <div class="settings-help">Hide private text in your journal using <code>{{secret: your text}}</code> syntax. Set a password to encrypt secrets.</div>
+          <div class="settings-row">
+            <label for="secrets-password">Secrets Password</label>
+            <input type="password" id="secrets-password" placeholder="Enter password to set/change">
+          </div>
+          <div class="settings-row">
+            <label for="secrets-password-confirm">Confirm Password</label>
+            <input type="password" id="secrets-password-confirm" placeholder="Confirm password">
+          </div>
+          <div class="settings-help" id="secrets-status"></div>
         </div>
 
         <!-- Calendar Integration Section -->
@@ -1707,7 +1732,9 @@ function loadDay(date) {
     tasks = data.tasks;
     journalContent = data.journal || '';
 
-    document.getElementById('journal-content').value = journalContent;
+    // Apply secrets filtering when displaying
+    document.getElementById('journal-content').value = displayJournalContent(journalContent);
+    renderJournalWithSecrets();
 
     updatePrettyDate();
     renderTasks();
@@ -1715,6 +1742,7 @@ function loadDay(date) {
     loadIndexEntries();
     loadHebrewInfo();
     checkForUncompletedTasks();
+    updateSecretsUI();
 
     // Auto-import calendar events (silently, only shows toast if events imported)
     importCalendarEvents(date);
@@ -2266,10 +2294,24 @@ function carryForwardTasks(fromDate) {
 
 // Journal
 function saveJournal() {
-  const content = document.getElementById('journal-content').value;
+  const textarea = document.getElementById('journal-content');
+  let content = textarea.value;
+
+  // If secrets are locked and the original journal had secrets, we can't save
+  // (because the displayed content has placeholders instead of actual secrets)
+  if (!secretsUnlocked && journalContent && journalContent.includes('{{secret:')) {
+    showToast('Unlock secrets before saving journal with secrets', 'error');
+    return;
+  }
+
+  // If secrets are unlocked, save what the user typed (which includes actual secrets)
+  // If no secrets in original, save normally
   apiPost({ action: 'save_journal', date: currentDate, content }).then(data => {
     if (!data.success) {
       showToast('Error saving journal', 'error');
+    } else {
+      journalContent = content; // Update our local copy
+      showToast('Journal saved', 'success');
     }
   });
 }
@@ -3321,7 +3363,7 @@ function getCalendarFeeds() {
   return feeds;
 }
 
-function saveSettings() {
+async function saveSettings() {
   const settings = {
     location_name: document.getElementById('setting-location').value.trim(),
     latitude: document.getElementById('setting-latitude').value.trim(),
@@ -3340,6 +3382,28 @@ function saveSettings() {
   // Save keyboard shortcuts to localStorage
   saveShortcuts();
 
+  // Handle secrets password change
+  const secretsPassword = document.getElementById('secrets-password').value;
+  const secretsConfirm = document.getElementById('secrets-password-confirm').value;
+  if (secretsPassword || secretsConfirm) {
+    if (secretsPassword !== secretsConfirm) {
+      showToast('Secrets passwords do not match', 'error');
+      return;
+    }
+    if (secretsPassword.length < 4) {
+      showToast('Secrets password must be at least 4 characters', 'error');
+      return;
+    }
+    const result = await apiPost({ action: 'set_secrets_password', password: secretsPassword });
+    if (!result.success) {
+      showToast(result.error || 'Error setting secrets password', 'error');
+      return;
+    }
+    showToast('Secrets password set', 'success');
+    document.getElementById('secrets-password').value = '';
+    document.getElementById('secrets-password-confirm').value = '';
+  }
+
   apiPost({ action: 'save_settings', settings: settings }).then(data => {
     if (!data.success) {
       showToast('Error saving settings', 'error');
@@ -3350,8 +3414,85 @@ function saveSettings() {
       loadHebrewInfo();
       // Re-render tasks to apply hide-done setting
       renderTasks();
+      // Update secrets UI
+      updateSecretsUI();
     }
   });
+}
+
+// Journal secrets
+let secretsUnlocked = false;
+
+function updateSecretsUI() {
+  const hasSecretsPassword = !!(appSettings && appSettings.secrets_password_hash);
+  const secretsUnlockDiv = document.getElementById('secrets-unlock');
+  const statusDiv = document.getElementById('secrets-status');
+
+  if (hasSecretsPassword) {
+    secretsUnlockDiv.classList.add('visible');
+    if (statusDiv) statusDiv.textContent = 'Secrets password is set. Leave blank to keep current.';
+  } else {
+    secretsUnlockDiv.classList.remove('visible');
+    if (statusDiv) statusDiv.textContent = '';
+  }
+
+  // Update button visibility
+  document.getElementById('secrets-unlock-btn').style.display = secretsUnlocked ? 'none' : '';
+  document.getElementById('secrets-lock-btn').style.display = secretsUnlocked ? '' : 'none';
+  document.getElementById('secrets-unlock-password').style.display = secretsUnlocked ? 'none' : '';
+}
+
+async function unlockSecrets() {
+  const passwordInput = document.getElementById('secrets-unlock-password');
+  const password = passwordInput.value;
+  if (!password) {
+    showToast('Please enter your secrets password', 'error');
+    return;
+  }
+
+  const result = await apiPost({ action: 'verify_secrets_password', password: password });
+  if (result.success) {
+    secretsUnlocked = true;
+    passwordInput.value = '';
+    updateSecretsUI();
+    // Re-render journal to show secrets
+    renderJournalWithSecrets();
+    showToast('Secrets unlocked', 'success');
+  } else {
+    showToast(result.error || 'Incorrect password', 'error');
+  }
+}
+
+function lockSecrets() {
+  secretsUnlocked = false;
+  updateSecretsUI();
+  // Re-render journal to hide secrets
+  renderJournalWithSecrets();
+  showToast('Secrets locked', 'info');
+}
+
+function renderJournalWithSecrets() {
+  const textarea = document.getElementById('journal-content');
+  // Update displayed content based on unlock state
+  textarea.value = displayJournalContent(journalContent);
+  // Visual indicator class
+  if (secretsUnlocked) {
+    textarea.classList.remove('secrets-hidden');
+    textarea.classList.add('secrets-visible');
+  } else {
+    textarea.classList.remove('secrets-visible');
+    textarea.classList.add('secrets-hidden');
+  }
+}
+
+// Parse journal content for display - replace secrets with placeholders if locked
+function displayJournalContent(content) {
+  if (!content) return '';
+  if (secretsUnlocked) {
+    return content;
+  }
+  // Replace {{secret:...}} with placeholder
+  return content.replace(/\{\{secret:\s*([\s\S]*?)\}\}/g, '[🔒 Secret - unlock to view]');
 }
 
 // Pomodoro timer
@@ -3580,6 +3721,16 @@ document.getElementById('add-task-form').addEventListener('submit', e => {
 document.getElementById('save-journal').addEventListener('click', e => {
   e.preventDefault();
   saveJournal();
+});
+
+// Secrets unlock/lock buttons
+document.getElementById('secrets-unlock-btn').addEventListener('click', unlockSecrets);
+document.getElementById('secrets-lock-btn').addEventListener('click', lockSecrets);
+document.getElementById('secrets-unlock-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    unlockSecrets();
+  }
 });
 
 // Journal Ctrl+Enter is handled by global keyboard shortcuts system
