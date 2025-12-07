@@ -2167,6 +2167,13 @@ function copyTaskToDate(taskId, targetDate) {
 let yesterdayUncompleted = [];
 
 function checkForUncompletedTasks() {
+  // Only show carry forward for today or past dates, not future dates
+  const today = new Date().toISOString().slice(0, 10);
+  if (currentDate > today) {
+    hideCarryForwardSection();
+    return;
+  }
+
   const yesterdayStr = getPrevDay(currentDate);
 
   apiPost({ action: 'get_uncompleted_tasks', date: yesterdayStr }).then(data => {

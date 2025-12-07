@@ -1226,7 +1226,8 @@ function import_calendar_events(PDO $pdo, string $icsUrl, string $date, string $
         // Check for duplicate - look for any calendar task with same event summary
         // This prevents re-importing if calendar name changes
         $eventSummary = $event['summary'];
-        $stmt = $pdo->prepare('SELECT id FROM tasks WHERE task_date = :d AND text LIKE :pattern');
+        // Use COLLATE to handle mixed collation between database and search pattern
+        $stmt = $pdo->prepare('SELECT id FROM tasks WHERE task_date = :d AND text COLLATE utf8mb4_general_ci LIKE :pattern');
         $stmt->execute([':d' => $date, ':pattern' => '📅 %' . str_replace(['%', '_'], ['\\%', '\\_'], $eventSummary)]);
         if ($stmt->fetch()) {
             $skipped++;
