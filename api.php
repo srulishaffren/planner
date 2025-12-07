@@ -1,6 +1,6 @@
 <?php
-session_start();
 require_once __DIR__ . '/config.php';
+session_start();
 
 header('Content-Type: application/json');
 
@@ -245,6 +245,43 @@ try {
             echo json_encode(['success' => true, 'settings' => $allSettings]);
             break;
 
+        case 'change_password':
+            $currentPassword = $input['current_password'] ?? '';
+            $newPassword = $input['new_password'] ?? '';
+
+            if (strlen($newPassword) < 8) {
+                echo json_encode(['success' => false, 'error' => 'Password must be at least 8 characters']);
+                break;
+            }
+
+            // Verify current password
+            if (!password_verify($currentPassword, $appPasswordHash)) {
+                echo json_encode(['success' => false, 'error' => 'Current password is incorrect']);
+                break;
+            }
+
+            // Generate new hash and update config.php
+            $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+            $configPath = __DIR__ . '/config.php';
+            $configContent = file_get_contents($configPath);
+
+            // Use str_replace to avoid regex escaping issues with $ in bcrypt hashes
+            $configContent = preg_replace_callback(
+                '/\$appPasswordHash\s*=\s*\'[^\']+\';/',
+                function($matches) use ($newHash) {
+                    return "\$appPasswordHash = '" . $newHash . "';";
+                },
+                $configContent
+            );
+
+            if (file_put_contents($configPath, $configContent) === false) {
+                echo json_encode(['success' => false, 'error' => 'Failed to save new password']);
+                break;
+            }
+
+            echo json_encode(['success' => true]);
+            break;
+
         case 'export_all':
             $export = [
                 'exported_at' => date('Y-m-d H:i:s'),
@@ -312,6 +349,42 @@ try {
             }
             $result = upload_profile_photo($_FILES['file']);
             echo json_encode($result);
+            break;
+
+        case 'import_calendar_events':
+            $date = $input['date'] ?? date('Y-m-d');
+            $settings = get_all_settings($pdo);
+
+            // Get calendar feeds (new format) or fall back to single URL (old format)
+            $feeds = [];
+            if (!empty($settings['calendar_feeds'])) {
+                $feeds = json_decode($settings['calendar_feeds'], true) ?: [];
+            } elseif (!empty($settings['calendar_ics_url'])) {
+                // Migration: old single URL format
+                $feeds = [['name' => 'Calendar', 'url' => $settings['calendar_ics_url']]];
+            }
+
+            if (empty($feeds)) {
+                echo json_encode(['success' => true, 'imported' => 0, 'message' => 'No calendars configured']);
+                break;
+            }
+
+            $totalImported = 0;
+            $totalSkipped = 0;
+            foreach ($feeds as $feed) {
+                if (empty($feed['url'])) continue;
+                $result = import_calendar_events($pdo, $feed['url'], $date, $feed['name'] ?? 'Calendar');
+                $totalImported += $result['imported'];
+                $totalSkipped += $result['skipped'];
+            }
+
+            $tasks = load_tasks($pdo, $date);
+            echo json_encode([
+                'success' => true,
+                'imported' => $totalImported,
+                'skipped' => $totalSkipped,
+                'tasks' => $tasks
+            ]);
             break;
 
         default:
@@ -1073,7 +1146,7 @@ function get_all_settings(PDO $pdo): array {
 }
 
 function save_settings(PDO $pdo, array $settings): void {
-    $allowedKeys = ['location_name', 'latitude', 'longitude', 'timezone', 'elevation'];
+    $allowedKeys = ['location_name', 'latitude', 'longitude', 'timezone', 'elevation', 'calendar_ics_url', 'calendar_feeds'];
     $now = date('Y-m-d H:i:s');
 
     foreach ($settings as $key => $value) {
@@ -1091,6 +1164,190 @@ function save_settings(PDO $pdo, array $settings): void {
             ':u2' => $now,
         ]);
     }
+}
+
+// Import events from ICS calendar feed
+function import_calendar_events(PDO $pdo, string $icsUrl, string $date, string $calendarName = 'Calendar'): array {
+    $imported = 0;
+    $skipped = 0;
+
+    // Get user's timezone setting
+    $settings = get_all_settings($pdo);
+    $timezone = $settings['timezone'] ?? 'America/New_York';
+
+    // Fetch ICS with longer timeout (calendar files can be large)
+    $icsContent = fetch_url($icsUrl, 15);
+    if (!$icsContent) {
+        return ['imported' => 0, 'skipped' => 0, 'error' => 'Failed to fetch calendar'];
+    }
+
+    // Parse ICS and find events for the target date
+    $events = parse_ics_events($icsContent, $date, $timezone);
+
+    // Sort events by time (earliest first), all-day events (no time) come first
+    usort($events, function($a, $b) {
+        $timeA = $a['time'] ?? '00:00';
+        $timeB = $b['time'] ?? '00:00';
+        return strcmp($timeA, $timeB);
+    });
+
+    foreach ($events as $event) {
+        // Build task text: 📅 [CalendarName] HH:MM - Event summary
+        $taskText = $event['summary'];
+        if (!empty($event['time'])) {
+            $taskText = $event['time'] . ' - ' . $taskText;
+        }
+        $taskText = '📅 [' . $calendarName . '] ' . $taskText;
+
+        // Check for duplicate - look for any calendar task with same event summary
+        // This prevents re-importing if calendar name changes
+        $eventSummary = $event['summary'];
+        $stmt = $pdo->prepare('SELECT id FROM tasks WHERE task_date = :d AND text LIKE :pattern');
+        $stmt->execute([':d' => $date, ':pattern' => '📅 %' . str_replace(['%', '_'], ['\\%', '\\_'], $eventSummary)]);
+        if ($stmt->fetch()) {
+            $skipped++;
+            continue;
+        }
+
+        // Add as new task with priority B (important but not urgent)
+        add_task($pdo, $date, $taskText, 'B');
+        $imported++;
+    }
+
+    return ['imported' => $imported, 'skipped' => $skipped];
+}
+
+// Parse ICS content and extract events for a specific date
+function parse_ics_events(string $icsContent, string $targetDate, string $localTimezone = 'America/New_York'): array {
+    $events = [];
+    $targetTz = new DateTimeZone($localTimezone);
+    $targetDateObj = new DateTime($targetDate, $targetTz);
+    $targetDateStr = $targetDateObj->format('Ymd');
+
+    // Split into events
+    preg_match_all('/BEGIN:VEVENT(.+?)END:VEVENT/s', $icsContent, $matches);
+
+    foreach ($matches[1] as $eventBlock) {
+        $event = [];
+
+        // Extract SUMMARY
+        if (preg_match('/SUMMARY:(.+?)(?:\r?\n(?![ \t]))/s', $eventBlock, $m)) {
+            $event['summary'] = trim(preg_replace('/\r?\n[ \t]/', '', $m[1]));
+            // Decode ICS escaped characters
+            $event['summary'] = str_replace(['\\,', '\\;', '\\n', '\\N'], [',', ';', "\n", "\n"], $event['summary']);
+        } else {
+            continue; // Skip events without summary
+        }
+
+        // Extract DTSTART with timezone handling
+        $eventDate = null;
+        $eventTime = null;
+        $eventDateTime = null;
+
+        // Format: DTSTART;TZID=America/New_York:20251208T103000
+        if (preg_match('/DTSTART;TZID=([^:]+):(\d{8})T(\d{6})/', $eventBlock, $m)) {
+            $eventTz = new DateTimeZone($m[1]);
+            $eventDateTime = DateTime::createFromFormat('Ymd\THis', $m[2] . 'T' . $m[3], $eventTz);
+            $eventDateTime->setTimezone($targetTz);
+            $eventDate = $eventDateTime->format('Ymd');
+            $eventTime = $eventDateTime->format('H:i');
+        }
+        // Format: DTSTART:20251208T080000Z (UTC)
+        elseif (preg_match('/DTSTART:(\d{8})T(\d{6})Z/', $eventBlock, $m)) {
+            $eventDateTime = DateTime::createFromFormat('Ymd\THis', $m[1] . 'T' . $m[2], new DateTimeZone('UTC'));
+            $eventDateTime->setTimezone($targetTz);
+            $eventDate = $eventDateTime->format('Ymd');
+            $eventTime = $eventDateTime->format('H:i');
+        }
+        // Format: DTSTART:20251208T080000 (no timezone, assume local)
+        elseif (preg_match('/DTSTART:(\d{8})T(\d{6})/', $eventBlock, $m)) {
+            $eventDateTime = DateTime::createFromFormat('Ymd\THis', $m[1] . 'T' . $m[2], $targetTz);
+            $eventDate = $m[1];
+            $eventTime = substr($m[2], 0, 2) . ':' . substr($m[2], 2, 2);
+        }
+        // Format: DTSTART;VALUE=DATE:20251208 (all-day event)
+        elseif (preg_match('/DTSTART;VALUE=DATE:(\d{8})/', $eventBlock, $m)) {
+            $eventDate = $m[1];
+        }
+        // Format: DTSTART:20251208 (all-day event, alternate)
+        elseif (preg_match('/DTSTART:(\d{8})(?!\d)/', $eventBlock, $m)) {
+            $eventDate = $m[1];
+        }
+
+        // Check if event is on target date
+        if ($eventDate === $targetDateStr) {
+            $event['time'] = $eventTime;
+            $events[] = $event;
+        }
+
+        // Handle recurring events (RRULE) - basic support
+        if (preg_match('/RRULE:(.+?)(?:\r?\n(?![ \t]))/s', $eventBlock, $m) && $eventDate) {
+            $rrule = $m[1];
+            $startDate = DateTime::createFromFormat('Ymd', $eventDate, $targetTz);
+            if ($startDate && $startDate <= $targetDateObj) {
+                if (is_recurring_on_date($rrule, $startDate, $targetDateObj)) {
+                    $event['time'] = $eventTime;
+                    $events[] = $event;
+                }
+            }
+        }
+    }
+
+    return $events;
+}
+
+// Check if a recurring event occurs on a target date (basic RRULE support)
+function is_recurring_on_date(string $rrule, DateTime $startDate, DateTime $targetDate): bool {
+    $rules = [];
+    foreach (explode(';', $rrule) as $part) {
+        $kv = explode('=', $part, 2);
+        if (count($kv) === 2) {
+            $rules[strtoupper($kv[0])] = $kv[1];
+        }
+    }
+
+    $freq = $rules['FREQ'] ?? '';
+    $interval = (int)($rules['INTERVAL'] ?? 1);
+    $until = isset($rules['UNTIL']) ? DateTime::createFromFormat('Ymd', substr($rules['UNTIL'], 0, 8)) : null;
+    $count = isset($rules['COUNT']) ? (int)$rules['COUNT'] : null;
+
+    if ($until && $targetDate > $until) return false;
+
+    $diff = $startDate->diff($targetDate);
+
+    switch ($freq) {
+        case 'DAILY':
+            $daysDiff = (int)$diff->format('%a');
+            if ($daysDiff % $interval !== 0) return false;
+            if ($count && ($daysDiff / $interval) >= $count) return false;
+            return true;
+
+        case 'WEEKLY':
+            $weeksDiff = floor((int)$diff->format('%a') / 7);
+            if ($weeksDiff % $interval !== 0) return false;
+            // Check same day of week
+            if ($startDate->format('N') !== $targetDate->format('N')) return false;
+            if ($count && ($weeksDiff / $interval) >= $count) return false;
+            return true;
+
+        case 'MONTHLY':
+            $monthsDiff = ((int)$diff->format('%y') * 12) + (int)$diff->format('%m');
+            if ($monthsDiff % $interval !== 0) return false;
+            // Check same day of month
+            if ($startDate->format('j') !== $targetDate->format('j')) return false;
+            if ($count && ($monthsDiff / $interval) >= $count) return false;
+            return true;
+
+        case 'YEARLY':
+            $yearsDiff = (int)$diff->format('%y');
+            if ($yearsDiff % $interval !== 0) return false;
+            // Check same month and day
+            if ($startDate->format('m-d') !== $targetDate->format('m-d')) return false;
+            if ($count && ($yearsDiff / $interval) >= $count) return false;
+            return true;
+    }
+
+    return false;
 }
 
 // URL fetch with timeout

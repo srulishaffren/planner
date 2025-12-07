@@ -1,6 +1,6 @@
 <?php
-session_start();
 require_once __DIR__ . '/config.php';
+session_start();
 
 // Simple app login on top of HTTP auth
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
@@ -358,6 +358,14 @@ $today = date('Y-m-d');
     .settings-row-inline { display:flex; gap:12px; }
     .settings-row-inline .settings-row { flex:1; }
     .settings-help { font-size:0.8rem; color:var(--text-faint); margin-top:2px; }
+    .calendar-entry { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+    .calendar-entry input { flex:1; }
+    .calendar-entry .calendar-name { width:120px; flex:none; }
+    .calendar-entry .calendar-url { flex:1; }
+    .btn-remove-calendar { background:var(--accent-danger); border:none; color:#fff; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.85rem; }
+    .btn-remove-calendar:hover { opacity:0.9; }
+    .btn-add-calendar { background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-primary); padding:6px 12px; border-radius:4px; cursor:pointer; font-size:0.85rem; margin-bottom:8px; }
+    .btn-add-calendar:hover { background:var(--bg-hover); }
     .settings-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; padding-top:12px; border-top:1px solid var(--border-secondary); }
     .settings-actions button { padding:8px 16px; border-radius:4px; cursor:pointer; font-size:0.9rem; }
     .settings-actions .btn-save { background:var(--accent-primary); border:none; color:#fff; }
@@ -528,6 +536,10 @@ $today = date('Y-m-d');
         <div class="user-dropdown-item" id="settings-btn">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
           Settings
+        </div>
+        <div class="user-dropdown-item" id="change-password-btn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+          Change Password
         </div>
         <div class="user-dropdown-item" id="export-btn">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
@@ -857,9 +869,48 @@ $today = date('Y-m-d');
           </div>
         </div>
 
+        <!-- Calendar Integration Section -->
+        <div class="settings-section">
+          <div class="settings-section-title">Calendar Integration</div>
+          <div id="calendar-list"></div>
+          <button type="button" class="btn-add-calendar" id="add-calendar-btn">+ Add Calendar</button>
+          <div class="settings-help">Events from these calendars will be imported as tasks automatically. Find the ICS URL under Google Calendar Settings > Integrate calendar > Secret address in iCal format.</div>
+        </div>
+
         <div class="settings-actions">
           <button type="button" class="btn-cancel" id="settings-cancel">Cancel</button>
           <button type="submit" class="btn-save">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal-overlay" id="change-password-modal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h2>Change Password</h2>
+      <button id="change-password-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form class="settings-form" id="change-password-form">
+        <div class="settings-row">
+          <label for="current-password">Current Password</label>
+          <input type="password" id="current-password" autocomplete="current-password" required>
+        </div>
+        <div class="settings-row">
+          <label for="new-password">New Password</label>
+          <input type="password" id="new-password" autocomplete="new-password" required minlength="8">
+        </div>
+        <div class="settings-row">
+          <label for="confirm-password">Confirm New Password</label>
+          <input type="password" id="confirm-password" autocomplete="new-password" required minlength="8">
+        </div>
+        <div class="settings-help">Password must be at least 8 characters.</div>
+        <div class="settings-actions">
+          <button type="button" class="btn-cancel" id="change-password-cancel">Cancel</button>
+          <button type="submit" class="btn-save">Change Password</button>
         </div>
       </form>
     </div>
@@ -1370,6 +1421,19 @@ function loadDay(date) {
     loadIndexEntries();
     loadHebrewInfo();
     checkForUncompletedTasks();
+
+    // Auto-import calendar events (silently, only shows toast if events imported)
+    importCalendarEvents(date);
+  });
+}
+
+function importCalendarEvents(date) {
+  apiPost({ action: 'import_calendar_events', date: date }).then(data => {
+    if (data.success && data.imported > 0) {
+      tasks = data.tasks;
+      renderTasks();
+      showToast(`Imported ${data.imported} calendar event${data.imported > 1 ? 's' : ''}`, 'success');
+    }
   });
 }
 
@@ -2678,6 +2742,52 @@ function populateSettingsForm() {
   document.getElementById('setting-timezone').value = appSettings.timezone || 'Asia/Jerusalem';
   document.getElementById('setting-elevation').value = appSettings.elevation || '';
   document.getElementById('setting-hide-done').checked = localStorage.getItem('planner_hide_done') === 'true';
+
+  // Populate calendar list
+  const calendarList = document.getElementById('calendar-list');
+  calendarList.innerHTML = '';
+  let calendars = [];
+  try {
+    calendars = JSON.parse(appSettings.calendar_feeds || '[]');
+  } catch (e) {
+    // Migration: convert old single URL to new format
+    if (appSettings.calendar_ics_url) {
+      calendars = [{ name: 'Calendar', url: appSettings.calendar_ics_url }];
+    }
+  }
+  calendars.forEach((cal, index) => addCalendarEntry(cal.name, cal.url));
+}
+
+function addCalendarEntry(name = '', url = '') {
+  const calendarList = document.getElementById('calendar-list');
+  const entry = document.createElement('div');
+  entry.className = 'calendar-entry';
+  entry.innerHTML = `
+    <input type="text" class="calendar-name" placeholder="Name" value="${escapeHtml(name)}">
+    <input type="url" class="calendar-url" placeholder="https://calendar.google.com/calendar/ical/..." value="${escapeHtml(url)}">
+    <button type="button" class="btn-remove-calendar">Remove</button>
+  `;
+  entry.querySelector('.btn-remove-calendar').addEventListener('click', () => entry.remove());
+  calendarList.appendChild(entry);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function getCalendarFeeds() {
+  const entries = document.querySelectorAll('.calendar-entry');
+  const feeds = [];
+  entries.forEach(entry => {
+    const name = entry.querySelector('.calendar-name').value.trim();
+    const url = entry.querySelector('.calendar-url').value.trim();
+    if (url) {
+      feeds.push({ name: name || 'Calendar', url });
+    }
+  });
+  return feeds;
 }
 
 function saveSettings() {
@@ -2687,6 +2797,7 @@ function saveSettings() {
     longitude: document.getElementById('setting-longitude').value.trim(),
     timezone: document.getElementById('setting-timezone').value,
     elevation: document.getElementById('setting-elevation').value.trim(),
+    calendar_feeds: JSON.stringify(getCalendarFeeds()),
   };
 
   // Save display settings to localStorage
@@ -2919,6 +3030,57 @@ document.getElementById('settings-modal').addEventListener('click', (e) => {
 document.getElementById('settings-form').addEventListener('submit', (e) => {
   e.preventDefault();
   saveSettings();
+});
+document.getElementById('add-calendar-btn').addEventListener('click', () => {
+  addCalendarEntry();
+});
+
+// Change password modal events
+function openChangePasswordModal() {
+  document.getElementById('change-password-form').reset();
+  document.getElementById('change-password-modal').classList.add('open');
+  document.getElementById('current-password').focus();
+}
+function closeChangePasswordModal() {
+  document.getElementById('change-password-modal').classList.remove('open');
+}
+
+document.getElementById('change-password-btn').addEventListener('click', () => {
+  closeUserDropdown();
+  openChangePasswordModal();
+});
+document.getElementById('change-password-modal-close').addEventListener('click', closeChangePasswordModal);
+document.getElementById('change-password-cancel').addEventListener('click', closeChangePasswordModal);
+document.getElementById('change-password-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'change-password-modal') closeChangePasswordModal();
+});
+document.getElementById('change-password-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const currentPassword = document.getElementById('current-password').value;
+  const newPassword = document.getElementById('new-password').value;
+  const confirmPassword = document.getElementById('confirm-password').value;
+
+  if (newPassword !== confirmPassword) {
+    showToast('New passwords do not match', 'error');
+    return;
+  }
+  if (newPassword.length < 8) {
+    showToast('Password must be at least 8 characters', 'error');
+    return;
+  }
+
+  apiPost({
+    action: 'change_password',
+    current_password: currentPassword,
+    new_password: newPassword
+  }).then(data => {
+    if (data.success) {
+      showToast('Password changed successfully', 'success');
+      closeChangePasswordModal();
+    } else {
+      showToast(data.error || 'Failed to change password', 'error');
+    }
+  });
 });
 
 document.getElementById('export-btn').addEventListener('click', () => {
