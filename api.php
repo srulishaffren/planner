@@ -1216,12 +1216,13 @@ function import_calendar_events(PDO $pdo, string $icsUrl, string $date, string $
     });
 
     foreach ($events as $event) {
-        // Build task text: 📅 [CalendarName] HH:MM - Event summary
+        // Build task text: [CAL:CalendarName] HH:MM - Event summary
+        // Using [CAL:] prefix instead of emoji because database uses utf8mb3 which doesn't support 4-byte chars
         $taskText = $event['summary'];
         if (!empty($event['time'])) {
             $taskText = $event['time'] . ' - ' . $taskText;
         }
-        $taskText = '📅 [' . $calendarName . '] ' . $taskText;
+        $taskText = '[CAL:' . $calendarName . '] ' . $taskText;
 
         // Check for duplicate - look for any calendar task with same event summary
         // This prevents re-importing if calendar name changes

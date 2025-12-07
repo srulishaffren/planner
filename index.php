@@ -171,6 +171,7 @@ $today = date('Y-m-d');
     .drag-handle:active { cursor:grabbing; }
     .task-left { display:flex; flex-direction:column; flex:1; min-width:0; }
     .task-text.has-notes::after { content:'📝'; margin-left:6px; font-size:0.8em; }
+    .calendar-icon { width:16px; height:16px; vertical-align:middle; margin-right:6px; }
     .task-controls { display:flex; gap:4px; align-items:center; }
     .task-controls button { padding:2px 6px; font-size:var(--font-size-xs); background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; cursor:pointer; }
     .task-controls button:hover { background:var(--bg-active); }
@@ -1786,11 +1787,30 @@ function renderTasks() {
       dragHandle.textContent = '⋮⋮';
       dragHandle.title = 'Drag to reorder';
 
+      // Check if this is a calendar entry
+      // Supports: [CAL:Name], ? [Name] (old emoji that got corrupted), or starts with calendar emoji
+      const calendarMatch = task.text.match(/^\[CAL:([^\]]+)\]\s*(.*)$/) ||
+                           task.text.match(/^\?\s*\[([^\]]+)\]\s*(.*)$/) ||
+                           task.text.match(/^📅\s*\[([^\]]+)\]\s*(.*)$/);
+      const isCalendarEntry = !!calendarMatch;
+
       const left = document.createElement('div');
       left.className = 'task-left';
       const text = document.createElement('div');
       text.className = 'task-text';
-      text.textContent = task.text;
+
+      if (isCalendarEntry) {
+        // Render with Google Calendar icon
+        const calIcon = document.createElement('img');
+        calIcon.src = 'https://www.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_31_2x.png';
+        calIcon.alt = 'Calendar';
+        calIcon.className = 'calendar-icon';
+        calIcon.title = calendarMatch[1]; // Calendar name
+        text.appendChild(calIcon);
+        text.appendChild(document.createTextNode(calendarMatch[2])); // Event text
+      } else {
+        text.textContent = task.text;
+      }
 
       // Indicator if task has notes
       if (task.notes && task.notes.trim()) {
@@ -1802,72 +1822,86 @@ function renderTasks() {
       const controls = document.createElement('div');
       controls.className = 'task-controls';
 
-      const statusSelect = document.createElement('select');
-      statusSelect.className = 'task-status-select';
-      statuses.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.value;
-        opt.textContent = s.label;
-        if (task.status === s.value) opt.selected = true;
-        statusSelect.appendChild(opt);
-      });
-      statusSelect.addEventListener('change', () => {
-        updateTask(task.id, { status: statusSelect.value });
-      });
+      if (isCalendarEntry) {
+        // Calendar entries only get delete button - Google Calendar manages the rest
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'X';
+        deleteBtn.title = 'Remove from planner';
+        deleteBtn.addEventListener('click', async () => {
+          if (await showConfirm('Remove this calendar event from the planner?')) {
+            deleteTask(task.id);
+          }
+        });
+        controls.appendChild(deleteBtn);
+      } else {
+        // Regular tasks get full controls
+        const statusSelect = document.createElement('select');
+        statusSelect.className = 'task-status-select';
+        statuses.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.value;
+          opt.textContent = s.label;
+          if (task.status === s.value) opt.selected = true;
+          statusSelect.appendChild(opt);
+        });
+        statusSelect.addEventListener('change', () => {
+          updateTask(task.id, { status: statusSelect.value });
+        });
 
-      const statusDot = document.createElement('span');
-      statusDot.className = 'status-dot status-' + task.status.replace(' ','_');
+        const statusDot = document.createElement('span');
+        statusDot.className = 'status-dot status-' + task.status.replace(' ','_');
 
-      const completeBtn = document.createElement('button');
-      completeBtn.textContent = '✓';
-      completeBtn.title = 'Mark as done';
-      completeBtn.addEventListener('click', () => {
-        updateTask(task.id, { status: 'done' });
-      });
+        const completeBtn = document.createElement('button');
+        completeBtn.textContent = '✓';
+        completeBtn.title = 'Mark as done';
+        completeBtn.addEventListener('click', () => {
+          updateTask(task.id, { status: 'done' });
+        });
 
-      const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = 'X';
-      deleteBtn.title = 'Delete task';
-      deleteBtn.addEventListener('click', async () => {
-        if (await showConfirm('Delete this task?')) {
-          deleteTask(task.id);
-        }
-      });
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'X';
+        deleteBtn.title = 'Delete task';
+        deleteBtn.addEventListener('click', async () => {
+          if (await showConfirm('Delete this task?')) {
+            deleteTask(task.id);
+          }
+        });
 
-      const detailsBtn = document.createElement('button');
-      detailsBtn.className = 'details-btn';
-      detailsBtn.textContent = '⋯';
-      detailsBtn.title = 'Task details';
-      detailsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openTaskDetails(task.id);
-      });
+        const detailsBtn = document.createElement('button');
+        detailsBtn.className = 'details-btn';
+        detailsBtn.textContent = '⋯';
+        detailsBtn.title = 'Task details';
+        detailsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openTaskDetails(task.id);
+        });
 
-      const copyNextBtn = document.createElement('button');
-      copyNextBtn.className = 'copy-next-btn';
-      copyNextBtn.textContent = '→';
-      copyNextBtn.title = 'Copy to tomorrow';
-      copyNextBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        copyTaskToNextDay(task.id);
-      });
+        const copyNextBtn = document.createElement('button');
+        copyNextBtn.className = 'copy-next-btn';
+        copyNextBtn.textContent = '→';
+        copyNextBtn.title = 'Copy to tomorrow';
+        copyNextBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          copyTaskToNextDay(task.id);
+        });
 
-      const pomodoroBtn = document.createElement('button');
-      pomodoroBtn.className = 'pomodoro-btn';
-      pomodoroBtn.textContent = '🍅';
-      pomodoroBtn.title = 'Start Pomodoro (25 min)';
-      pomodoroBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        startPomodoro(task.id, task.text);
-      });
+        const pomodoroBtn = document.createElement('button');
+        pomodoroBtn.className = 'pomodoro-btn';
+        pomodoroBtn.textContent = '🍅';
+        pomodoroBtn.title = 'Start Pomodoro (25 min)';
+        pomodoroBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          startPomodoro(task.id, task.text);
+        });
 
-      controls.appendChild(pomodoroBtn);
-      controls.appendChild(statusDot);
-      controls.appendChild(statusSelect);
-      controls.appendChild(completeBtn);
-      controls.appendChild(deleteBtn);
-      controls.appendChild(detailsBtn);
-      controls.appendChild(copyNextBtn);
+        controls.appendChild(pomodoroBtn);
+        controls.appendChild(statusDot);
+        controls.appendChild(statusSelect);
+        controls.appendChild(completeBtn);
+        controls.appendChild(deleteBtn);
+        controls.appendChild(detailsBtn);
+        controls.appendChild(copyNextBtn);
+      }
 
       item.appendChild(dragHandle);
       item.appendChild(left);
