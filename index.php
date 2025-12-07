@@ -169,14 +169,15 @@ $today = date('Y-m-d');
     .drag-handle { cursor:grab; color:var(--text-muted); padding:4px 2px; font-size:1.1em; user-select:none; }
     .drag-handle:hover { color:var(--text-secondary); }
     .drag-handle:active { cursor:grabbing; }
-    .task-left { display:flex; flex-direction:column; }
-    .task-meta { font-size:var(--font-size-xs); color:var(--text-secondary); }
+    .task-left { display:flex; flex-direction:column; flex:1; min-width:0; }
+    .task-text.has-notes::after { content:'📝'; margin-left:6px; font-size:0.8em; }
     .task-controls { display:flex; gap:4px; align-items:center; }
     .task-controls button { padding:2px 6px; font-size:var(--font-size-xs); background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; cursor:pointer; }
     .task-controls button:hover { background:var(--bg-active); }
     .task-controls select { background:var(--bg-tertiary); color:var(--text-primary); border:1px solid var(--border-input); font-size:var(--font-size-xs); }
     .task-controls .pomodoro-btn { font-size:1rem; padding:2px 4px; }
     .task-controls .pomodoro-btn.active { background:var(--accent-danger); color:#fff; border-color:var(--accent-danger); }
+    .task-controls .details-btn, .task-controls .copy-next-btn { font-size:0.9rem; padding:2px 6px; }
     .task-item.pomodoro-active { border-color:var(--accent-danger); box-shadow:0 0 8px rgba(220,53,69,0.3); }
 
     /* Done section styles */
@@ -437,13 +438,6 @@ $today = date('Y-m-d');
 
     /* Multi-line task text */
     .task-text { white-space:pre-wrap; word-break:break-word; flex:1; }
-    .task-left { flex:1; min-width:0; }
-
-    /* Task action buttons */
-    .task-actions { display:flex; gap:4px; margin-top:4px; }
-    .task-actions button { padding:2px 6px; font-size:0.7rem; background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-secondary); border-radius:4px; cursor:pointer; }
-    .task-actions button:hover { background:var(--bg-active); color:var(--text-primary); }
-
     /* Task details modal */
     .task-details-modal .modal { max-width:500px; }
     .task-details-form { display:flex; flex-direction:column; gap:12px; }
@@ -1798,37 +1792,12 @@ function renderTasks() {
       text.className = 'task-text';
       text.textContent = task.text;
 
-      const meta = document.createElement('div');
-      meta.className = 'task-meta';
-      let metaText = 'Status: ' + task.status;
+      // Indicator if task has notes
       if (task.notes && task.notes.trim()) {
-        metaText += ' | Has notes';
+        text.classList.add('has-notes');
       }
-      meta.textContent = metaText;
-
-      const actions = document.createElement('div');
-      actions.className = 'task-actions';
-
-      const detailsBtn = document.createElement('button');
-      detailsBtn.textContent = 'Details';
-      detailsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openTaskDetails(task.id);
-      });
-
-      const copyNextBtn = document.createElement('button');
-      copyNextBtn.textContent = 'Copy to Tomorrow';
-      copyNextBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        copyTaskToNextDay(task.id);
-      });
-
-      actions.appendChild(detailsBtn);
-      actions.appendChild(copyNextBtn);
 
       left.appendChild(text);
-      left.appendChild(meta);
-      left.appendChild(actions);
 
       const controls = document.createElement('div');
       controls.className = 'task-controls';
@@ -1858,10 +1827,29 @@ function renderTasks() {
 
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = 'X';
+      deleteBtn.title = 'Delete task';
       deleteBtn.addEventListener('click', async () => {
         if (await showConfirm('Delete this task?')) {
           deleteTask(task.id);
         }
+      });
+
+      const detailsBtn = document.createElement('button');
+      detailsBtn.className = 'details-btn';
+      detailsBtn.textContent = '⋯';
+      detailsBtn.title = 'Task details';
+      detailsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openTaskDetails(task.id);
+      });
+
+      const copyNextBtn = document.createElement('button');
+      copyNextBtn.className = 'copy-next-btn';
+      copyNextBtn.textContent = '→';
+      copyNextBtn.title = 'Copy to tomorrow';
+      copyNextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyTaskToNextDay(task.id);
       });
 
       const pomodoroBtn = document.createElement('button');
@@ -1878,6 +1866,8 @@ function renderTasks() {
       controls.appendChild(statusSelect);
       controls.appendChild(completeBtn);
       controls.appendChild(deleteBtn);
+      controls.appendChild(detailsBtn);
+      controls.appendChild(copyNextBtn);
 
       item.appendChild(dragHandle);
       item.appendChild(left);
