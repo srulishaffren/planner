@@ -1804,7 +1804,7 @@ function renderTasks() {
     filtered.forEach(task => {
       const item = document.createElement('li');
       item.className = 'task-item';
-      item.draggable = true;
+      item.draggable = false; // Only draggable when mousedown on handle
       item.dataset.taskId = task.id;
       item.dataset.priority = priority;
       item.addEventListener('dragstart', handleDragStart);
@@ -1814,6 +1814,13 @@ function renderTasks() {
       dragHandle.className = 'drag-handle';
       dragHandle.textContent = '⋮⋮';
       dragHandle.title = 'Drag to reorder';
+      // Make handle trigger drag on mousedown
+      dragHandle.addEventListener('mousedown', () => {
+        item.setAttribute('draggable', 'true');
+      });
+      dragHandle.addEventListener('mouseup', () => {
+        item.setAttribute('draggable', 'false');
+      });
 
       // Check if this is a calendar entry
       // Supports: [CAL:Name], ? [Name] (old emoji that got corrupted), or starts with calendar emoji
@@ -2035,11 +2042,6 @@ function renderTasks() {
 let draggedId = null;
 
 function handleDragStart(e) {
-  // Only allow drag from the handle (use closest to handle clicks on child nodes)
-  if (!e.target.closest('.drag-handle')) {
-    e.preventDefault();
-    return;
-  }
   draggedId = this.dataset.taskId;
   e.dataTransfer.effectAllowed = 'move';
   this.style.opacity = '0.5';
@@ -2047,6 +2049,7 @@ function handleDragStart(e) {
 
 function handleDragEnd(e) {
   this.style.opacity = '1';
+  this.draggable = false; // Reset so only handle can start drag
 }
 
 function handleDragOver(e) {
