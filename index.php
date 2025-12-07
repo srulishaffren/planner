@@ -175,6 +175,26 @@ $today = date('Y-m-d');
     .task-controls button { padding:2px 6px; font-size:var(--font-size-xs); background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; cursor:pointer; }
     .task-controls button:hover { background:var(--bg-active); }
     .task-controls select { background:var(--bg-tertiary); color:var(--text-primary); border:1px solid var(--border-input); font-size:var(--font-size-xs); }
+    .task-controls .pomodoro-btn { font-size:1rem; padding:2px 4px; }
+    .task-controls .pomodoro-btn.active { background:var(--accent-danger); color:#fff; border-color:var(--accent-danger); }
+    .task-item.pomodoro-active { border-color:var(--accent-danger); box-shadow:0 0 8px rgba(220,53,69,0.3); }
+
+    /* Done section styles */
+    .done-section { margin-top:16px; border-top:2px solid var(--border-primary); padding-top:12px; }
+    .done-section .priority-title { color:var(--text-secondary); }
+    .done-list .task-item { opacity:0.7; }
+    .done-list .task-item:hover { opacity:1; }
+    .done-task-item .task-text { text-decoration:line-through; color:var(--text-secondary); }
+    .done-priority-badge { display:inline-block; background:var(--bg-hover); color:var(--text-secondary); padding:1px 6px; border-radius:3px; font-size:var(--font-size-xs); font-weight:bold; margin-right:8px; }
+
+    /* Pomodoro timer display */
+    .pomodoro-timer { display:none; align-items:center; gap:8px; padding:4px 12px; background:var(--accent-danger); color:#fff; border-radius:4px; font-weight:600; }
+    .pomodoro-timer.active { display:flex; }
+    .pomodoro-timer-time { font-family:monospace; font-size:1.1rem; }
+    .pomodoro-timer-task { font-size:var(--font-size-small); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pomodoro-timer-controls { display:flex; gap:4px; }
+    .pomodoro-timer-controls button { background:rgba(255,255,255,0.2); border:none; color:#fff; padding:2px 8px; border-radius:3px; cursor:pointer; font-size:var(--font-size-xs); }
+    .pomodoro-timer-controls button:hover { background:rgba(255,255,255,0.3); }
 
     .add-task-form { display:flex; gap:4px; margin-bottom:8px; }
     .add-task-form input[type="text"] { flex:1; background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-primary); padding:4px; border-radius:4px; }
@@ -182,8 +202,23 @@ $today = date('Y-m-d');
     .add-task-form button { padding:4px 8px; background:var(--accent-primary); border:none; color:#fff; border-radius:4px; cursor:pointer; }
 
     textarea { width:100%; min-height:200px; background:var(--bg-tertiary); color:var(--text-primary); border:1px solid var(--border-input); border-radius:4px; padding:6px; resize:vertical; font-family:var(--font-family); font-size:var(--font-size-base); }
+    .journal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .journal-header h2 { margin:0; }
+    .journal-search { display:flex; gap:4px; }
+    .journal-search input { padding:4px 8px; background:var(--bg-tertiary); border:1px solid var(--border-input); border-radius:4px; color:var(--text-primary); font-size:var(--font-size-small); width:150px; }
+    .journal-search input:focus { border-color:var(--accent-primary); outline:none; }
+    .journal-search button { padding:4px 8px; background:var(--bg-tertiary); border:1px solid var(--border-input); border-radius:4px; cursor:pointer; }
+    .journal-search button:hover { background:var(--bg-hover); }
     .journal-controls { margin-top:8px; display:flex; justify-content:flex-end; }
     .journal-controls button { padding:4px 8px; background:var(--accent-primary); border:none; color:#fff; border-radius:4px; cursor:pointer; }
+
+    .search-result { padding:12px; border-bottom:1px solid var(--border-secondary); cursor:pointer; }
+    .search-result:hover { background:var(--bg-hover); }
+    .search-result:last-child { border-bottom:none; }
+    .search-result-date { font-weight:600; color:var(--accent-primary); margin-bottom:4px; }
+    .search-result-snippet { font-size:var(--font-size-small); color:var(--text-secondary); }
+    .search-result-snippet mark { background:var(--accent-warning); color:var(--bg-primary); padding:0 2px; border-radius:2px; }
+    .search-no-results { text-align:center; color:var(--text-muted); padding:20px; }
 
     .dropzone { border:2px dashed var(--border-input); border-radius:8px; padding:16px; text-align:center; color:var(--text-muted); margin-top:12px; transition:all 0.2s; cursor:pointer; }
     .dropzone:hover { border-color:var(--accent-primary); color:var(--text-secondary); }
@@ -272,6 +307,16 @@ $today = date('Y-m-d');
     .header-actions { display:flex; gap:8px; align-items:center; }
     .header-actions button { padding:6px 12px; background:var(--bg-hover); border:1px solid var(--border-input); color:var(--text-primary); border-radius:4px; cursor:pointer; font-size:var(--font-size-small); white-space:nowrap; }
     .header-actions button:hover { background:var(--bg-active); }
+
+    /* Torah dropdown */
+    .torah-dropdown { position:relative; }
+    .torah-dropdown-menu { display:none; position:absolute; top:100%; left:0; min-width:220px; background:var(--bg-secondary); border:1px solid var(--border-secondary); border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:100; margin-top:4px; max-height:400px; overflow-y:auto; }
+    .torah-dropdown-menu.open { display:block; }
+    .torah-dropdown-item { padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-secondary); }
+    .torah-dropdown-item:last-child { border-bottom:none; }
+    .torah-dropdown-item:hover { background:var(--bg-hover); }
+    .torah-dropdown-item-title { font-weight:600; color:var(--text-primary); font-size:var(--font-size-small); }
+    .torah-dropdown-item-ref { font-size:var(--font-size-xs); color:var(--text-secondary); margin-top:2px; }
 
     /* Hebrew date and special days */
     .date-info-row { display:flex; flex-direction:column; align-items:center; gap:2px; }
@@ -366,6 +411,16 @@ $today = date('Y-m-d');
     .btn-remove-calendar:hover { opacity:0.9; }
     .btn-add-calendar { background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-primary); padding:6px 12px; border-radius:4px; cursor:pointer; font-size:0.85rem; margin-bottom:8px; }
     .btn-add-calendar:hover { background:var(--bg-hover); }
+    .shortcuts-list { display:flex; flex-direction:column; gap:8px; margin:8px 0; }
+    .shortcut-row { display:flex; align-items:center; gap:8px; }
+    .shortcut-row label { flex:0 0 120px; font-size:var(--font-size-small); color:var(--text-secondary); }
+    .shortcut-input { flex:1; background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-primary); padding:6px 10px; border-radius:4px; font-family:monospace; font-size:0.9rem; }
+    .shortcut-input.recording { border-color:var(--accent-primary); background:var(--bg-hover); }
+    .shortcut-record-btn { background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-secondary); padding:4px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; }
+    .shortcut-record-btn:hover { background:var(--bg-hover); }
+    .shortcut-record-btn.recording { background:var(--accent-primary); color:#fff; border-color:var(--accent-primary); }
+    .btn-reset-shortcuts { background:var(--bg-tertiary); border:1px solid var(--border-input); color:var(--text-secondary); padding:6px 12px; border-radius:4px; cursor:pointer; font-size:0.85rem; margin-top:8px; }
+    .btn-reset-shortcuts:hover { background:var(--bg-hover); }
     .settings-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; padding-top:12px; border-top:1px solid var(--border-secondary); }
     .settings-actions button { padding:8px 16px; border-radius:4px; cursor:pointer; font-size:0.9rem; }
     .settings-actions .btn-save { background:var(--accent-primary); border:none; color:#fff; }
@@ -453,6 +508,7 @@ $today = date('Y-m-d');
       .add-task-form { flex-wrap:wrap; }
       .add-task-form input[type="text"] { flex:1; min-width:150px; }
       #journal-content { min-height:150px; }
+      .journal-search { flex-wrap:wrap; }
       .modal { margin:10px; max-height:calc(100vh - 20px); }
       .modal-body { padding:12px; }
     }
@@ -503,10 +559,22 @@ $today = date('Y-m-d');
   </div>
 
   <div class="header-right">
+    <div class="pomodoro-timer" id="pomodoro-timer">
+      <span>🍅</span>
+      <span class="pomodoro-timer-time" id="pomodoro-time">25:00</span>
+      <span class="pomodoro-timer-task" id="pomodoro-task-name"></span>
+      <div class="pomodoro-timer-controls">
+        <button id="pomodoro-pause">Pause</button>
+        <button id="pomodoro-stop">Stop</button>
+      </div>
+    </div>
     <div class="header-actions">
       <button id="today-btn">Today</button>
       <button id="zmanim-btn" title="Zmanim">Zmanim</button>
-      <button id="parsha-btn" title="Weekly Parsha">Parsha</button>
+      <div class="torah-dropdown" id="torah-dropdown">
+        <button id="torah-btn" title="Daily Torah Learning">Torah ▾</button>
+        <div class="torah-dropdown-menu" id="torah-dropdown-menu"></div>
+      </div>
       <button id="search-btn" title="Search journals">Search</button>
       <button id="month-index-btn" title="Monthly index">Index</button>
       <button id="yartzheits-btn" title="Manage Yartzheits">Yartzheits</button>
@@ -579,7 +647,13 @@ $today = date('Y-m-d');
   </div>
 
   <div class="column">
-    <h2>Journal</h2>
+    <div class="journal-header">
+      <h2>Journal</h2>
+      <div class="journal-search">
+        <input type="text" id="journal-search-input" placeholder="Search journals...">
+        <button id="journal-search-btn" title="Search">🔍</button>
+      </div>
+    </div>
     <textarea id="journal-content" placeholder="Daily notes..."></textarea>
     <div class="journal-controls">
       <button id="save-journal">Save journal</button>
@@ -751,15 +825,15 @@ $today = date('Y-m-d');
   </div>
 </div>
 
-<!-- Parsha Modal -->
-<div class="modal-overlay" id="parsha-modal">
+<!-- Torah Modal -->
+<div class="modal-overlay" id="torah-modal">
   <div class="modal" style="max-width:550px;">
     <div class="modal-header">
-      <h2>📖 Weekly Parsha</h2>
-      <button id="parsha-modal-close">&times;</button>
+      <h2 id="torah-modal-title">📖 Daily Learning</h2>
+      <button id="torah-modal-close">&times;</button>
     </div>
-    <div class="modal-body" id="parsha-content">
-      <div class="parsha-loading">Loading parsha information...</div>
+    <div class="modal-body" id="torah-content">
+      <div class="parsha-loading">Loading...</div>
     </div>
   </div>
 </div>
@@ -828,6 +902,52 @@ $today = date('Y-m-d');
               <span>Hide done tasks</span>
             </label>
           </div>
+          <div class="settings-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="setting-done-section">
+              <span>Show done tasks in separate section below D</span>
+            </label>
+            <div class="settings-help">When enabled, completed tasks move to a "Done" section instead of being hidden</div>
+          </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Section -->
+        <div class="settings-section">
+          <div class="settings-section-title">Keyboard Shortcuts</div>
+          <div class="settings-help">Configure keyboard shortcuts. Format: ctrl+key, alt+key, shift+key, or combinations like ctrl+shift+key</div>
+          <div class="shortcuts-list" id="shortcuts-list">
+            <div class="shortcut-row">
+              <label>Save journal</label>
+              <input type="text" class="shortcut-input" data-action="save_journal" value="ctrl+enter" readonly>
+              <button type="button" class="shortcut-record-btn" title="Click to record new shortcut">Record</button>
+            </div>
+            <div class="shortcut-row">
+              <label>Previous day</label>
+              <input type="text" class="shortcut-input" data-action="prev_day" value="alt+left" readonly>
+              <button type="button" class="shortcut-record-btn" title="Click to record new shortcut">Record</button>
+            </div>
+            <div class="shortcut-row">
+              <label>Next day</label>
+              <input type="text" class="shortcut-input" data-action="next_day" value="alt+right" readonly>
+              <button type="button" class="shortcut-record-btn" title="Click to record new shortcut">Record</button>
+            </div>
+            <div class="shortcut-row">
+              <label>Go to today</label>
+              <input type="text" class="shortcut-input" data-action="today" value="alt+t" readonly>
+              <button type="button" class="shortcut-record-btn" title="Click to record new shortcut">Record</button>
+            </div>
+            <div class="shortcut-row">
+              <label>Focus new task</label>
+              <input type="text" class="shortcut-input" data-action="new_task" value="alt+n" readonly>
+              <button type="button" class="shortcut-record-btn" title="Click to record new shortcut">Record</button>
+            </div>
+            <div class="shortcut-row">
+              <label>Open search</label>
+              <input type="text" class="shortcut-input" data-action="open_search" value="ctrl+k" readonly>
+              <button type="button" class="shortcut-record-btn" title="Click to record new shortcut">Record</button>
+            </div>
+          </div>
+          <button type="button" class="btn-reset-shortcuts" id="reset-shortcuts-btn">Reset to Defaults</button>
         </div>
 
         <!-- Location Section -->
@@ -882,6 +1002,19 @@ $today = date('Y-m-d');
           <button type="submit" class="btn-save">Save Settings</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- Journal Search Results Modal -->
+<div class="modal-overlay" id="journal-search-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <h2>Journal Search Results</h2>
+      <button id="journal-search-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="journal-search-results"></div>
     </div>
   </div>
 </div>
@@ -995,6 +1128,172 @@ let hebrewInfo = null;
 let allYartzheits = [];
 let appSettings = {};
 let currentTheme = {};
+
+// Keyboard shortcuts system
+const defaultShortcuts = {
+  save_journal: 'ctrl+enter',
+  prev_day: 'alt+left',
+  next_day: 'alt+right',
+  today: 'alt+t',
+  new_task: 'alt+n',
+  open_search: 'ctrl+k'
+};
+
+let shortcuts = { ...defaultShortcuts };
+
+function loadShortcuts() {
+  try {
+    const saved = localStorage.getItem('planner_shortcuts');
+    if (saved) {
+      shortcuts = { ...defaultShortcuts, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    shortcuts = { ...defaultShortcuts };
+  }
+}
+
+function saveShortcuts() {
+  localStorage.setItem('planner_shortcuts', JSON.stringify(shortcuts));
+}
+
+function keyEventToString(e) {
+  const parts = [];
+  if (e.ctrlKey || e.metaKey) parts.push('ctrl');
+  if (e.altKey) parts.push('alt');
+  if (e.shiftKey) parts.push('shift');
+
+  let key = e.key.toLowerCase();
+  // Normalize special keys
+  if (key === 'arrowleft') key = 'left';
+  if (key === 'arrowright') key = 'right';
+  if (key === 'arrowup') key = 'up';
+  if (key === 'arrowdown') key = 'down';
+  if (key === ' ') key = 'space';
+
+  // Don't add modifier keys alone
+  if (['control', 'alt', 'shift', 'meta'].includes(key)) return null;
+
+  parts.push(key);
+  return parts.join('+');
+}
+
+function matchesShortcut(e, shortcutStr) {
+  if (!shortcutStr) return false;
+  const eventStr = keyEventToString(e);
+  return eventStr === shortcutStr;
+}
+
+function populateShortcutInputs() {
+  document.querySelectorAll('.shortcut-input').forEach(input => {
+    const action = input.dataset.action;
+    input.value = shortcuts[action] || defaultShortcuts[action] || '';
+  });
+}
+
+let recordingInput = null;
+
+function initShortcutRecording() {
+  document.querySelectorAll('.shortcut-record-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.shortcut-row');
+      const input = row.querySelector('.shortcut-input');
+
+      if (recordingInput === input) {
+        // Cancel recording
+        stopRecording();
+        return;
+      }
+
+      // Stop any existing recording
+      stopRecording();
+
+      // Start recording for this input
+      recordingInput = input;
+      input.classList.add('recording');
+      btn.classList.add('recording');
+      btn.textContent = 'Press keys...';
+      input.value = 'Press shortcut...';
+    });
+  });
+}
+
+function stopRecording() {
+  if (recordingInput) {
+    const row = recordingInput.closest('.shortcut-row');
+    const btn = row.querySelector('.shortcut-record-btn');
+    const action = recordingInput.dataset.action;
+
+    recordingInput.classList.remove('recording');
+    btn.classList.remove('recording');
+    btn.textContent = 'Record';
+    recordingInput.value = shortcuts[action] || defaultShortcuts[action] || '';
+    recordingInput = null;
+  }
+}
+
+function handleShortcutRecording(e) {
+  if (!recordingInput) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const shortcutStr = keyEventToString(e);
+  if (!shortcutStr) return; // Just a modifier key
+
+  const action = recordingInput.dataset.action;
+  shortcuts[action] = shortcutStr;
+  recordingInput.value = shortcutStr;
+
+  stopRecording();
+}
+
+function resetShortcuts() {
+  shortcuts = { ...defaultShortcuts };
+  populateShortcutInputs();
+}
+
+// Global keyboard shortcut handler
+function handleGlobalShortcuts(e) {
+  // Don't trigger shortcuts when recording
+  if (recordingInput) {
+    handleShortcutRecording(e);
+    return;
+  }
+
+  // Don't trigger shortcuts when typing in input fields (except for specific cases)
+  const target = e.target;
+  const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+
+  // Allow save_journal shortcut in journal textarea
+  if (target.id === 'journal-content' && matchesShortcut(e, shortcuts.save_journal)) {
+    e.preventDefault();
+    saveJournal();
+    return;
+  }
+
+  // Skip other shortcuts if in input (unless ctrl+k for search)
+  if (isInput && !matchesShortcut(e, shortcuts.open_search)) {
+    return;
+  }
+
+  // Handle global shortcuts
+  if (matchesShortcut(e, shortcuts.prev_day)) {
+    e.preventDefault();
+    goToPrevDay();
+  } else if (matchesShortcut(e, shortcuts.next_day)) {
+    e.preventDefault();
+    goToNextDay();
+  } else if (matchesShortcut(e, shortcuts.today)) {
+    e.preventDefault();
+    goToToday();
+  } else if (matchesShortcut(e, shortcuts.new_task)) {
+    e.preventDefault();
+    document.getElementById('new-task-text').focus();
+  } else if (matchesShortcut(e, shortcuts.open_search)) {
+    e.preventDefault();
+    openSearchModal();
+  }
+}
 
 // Custom confirm modal
 function showConfirm(message, okText = 'Delete') {
@@ -1450,6 +1749,9 @@ function renderTasks() {
   const container = document.getElementById('priority-sections');
   container.innerHTML = '';
 
+  const hideDone = localStorage.getItem('planner_hide_done') === 'true';
+  const showDoneSection = localStorage.getItem('planner_done_section') === 'true';
+
   priorityOrder.forEach(priority => {
     const section = document.createElement('div');
     section.className = 'priority-section';
@@ -1469,9 +1771,11 @@ function renderTasks() {
     list.addEventListener('dragover', handleDragOver);
     list.addEventListener('drop', handleDrop);
 
-    const hideDone = localStorage.getItem('planner_hide_done') === 'true';
+    // Filter tasks based on settings
+    // If done section is enabled, exclude done tasks from priority sections
+    // If hide done is enabled (and done section disabled), exclude done tasks
     const filtered = tasks
-      .filter(t => t.priority === priority && (!hideDone || t.status !== 'done'))
+      .filter(t => t.priority === priority && (showDoneSection ? t.status !== 'done' : (!hideDone || t.status !== 'done')))
       .sort((a, b) => a.sort_order - b.sort_order);
 
     filtered.forEach(task => {
@@ -1560,6 +1864,16 @@ function renderTasks() {
         }
       });
 
+      const pomodoroBtn = document.createElement('button');
+      pomodoroBtn.className = 'pomodoro-btn';
+      pomodoroBtn.textContent = '🍅';
+      pomodoroBtn.title = 'Start Pomodoro (25 min)';
+      pomodoroBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startPomodoro(task.id, task.text);
+      });
+
+      controls.appendChild(pomodoroBtn);
       controls.appendChild(statusDot);
       controls.appendChild(statusSelect);
       controls.appendChild(completeBtn);
@@ -1574,6 +1888,95 @@ function renderTasks() {
     section.appendChild(list);
     container.appendChild(section);
   });
+
+  // Render Done section if enabled
+  if (showDoneSection) {
+    const doneTasks = tasks.filter(t => t.status === 'done').sort((a, b) => {
+      // Sort by priority first, then by sort_order
+      const priorityOrder = { A: 1, B: 2, C: 3, D: 4 };
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      }
+      return a.sort_order - b.sort_order;
+    });
+
+    if (doneTasks.length > 0) {
+      const doneSection = document.createElement('div');
+      doneSection.className = 'priority-section done-section';
+      doneSection.dataset.priority = 'done';
+
+      const header = document.createElement('div');
+      header.className = 'priority-header';
+      const title = document.createElement('div');
+      title.className = 'priority-title';
+      title.textContent = 'Done (' + doneTasks.length + ')';
+      header.appendChild(title);
+      doneSection.appendChild(header);
+
+      const list = document.createElement('ul');
+      list.className = 'task-list done-list';
+
+      doneTasks.forEach(task => {
+        const item = document.createElement('li');
+        item.className = 'task-item done-task-item';
+        item.dataset.taskId = task.id;
+
+        const left = document.createElement('div');
+        left.className = 'task-left';
+
+        const priorityBadge = document.createElement('span');
+        priorityBadge.className = 'done-priority-badge';
+        priorityBadge.textContent = task.priority;
+
+        const text = document.createElement('div');
+        text.className = 'task-text';
+        text.textContent = task.text;
+
+        const actions = document.createElement('div');
+        actions.className = 'task-actions';
+
+        const detailsBtn = document.createElement('button');
+        detailsBtn.textContent = 'Details';
+        detailsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openTaskDetails(task.id);
+        });
+        actions.appendChild(detailsBtn);
+
+        left.appendChild(priorityBadge);
+        left.appendChild(text);
+        left.appendChild(actions);
+
+        const controls = document.createElement('div');
+        controls.className = 'task-controls';
+
+        const undoBtn = document.createElement('button');
+        undoBtn.textContent = 'Undo';
+        undoBtn.title = 'Mark as todo';
+        undoBtn.addEventListener('click', () => {
+          updateTask(task.id, { status: 'todo' });
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'X';
+        deleteBtn.addEventListener('click', async () => {
+          if (await showConfirm('Delete this task?')) {
+            deleteTask(task.id);
+          }
+        });
+
+        controls.appendChild(undoBtn);
+        controls.appendChild(deleteBtn);
+
+        item.appendChild(left);
+        item.appendChild(controls);
+        list.appendChild(item);
+      });
+
+      doneSection.appendChild(list);
+      container.appendChild(doneSection);
+    }
+  }
 }
 
 // Drag and drop
@@ -2562,22 +2965,10 @@ function deleteRecurringTask(id) {
   });
 }
 
-// Parsha modal
-let parshaData = null;
+// Torah dropdown and modal
+let torahCalendarData = null;
 
-function openParshaModal() {
-  document.getElementById('parsha-modal').classList.add('open');
-  loadParshaData();
-}
-
-function closeParshaModal() {
-  document.getElementById('parsha-modal').classList.remove('open');
-}
-
-function loadParshaData() {
-  const content = document.getElementById('parsha-content');
-  content.innerHTML = '<div class="parsha-loading">Loading parsha information...</div>';
-
+function loadTorahDropdown() {
   // Add preconnect hint to warm up connection to Sefaria
   if (!document.querySelector('link[href="https://www.sefaria.org"]')) {
     const preconnect = document.createElement('link');
@@ -2589,20 +2980,123 @@ function loadParshaData() {
   fetch('https://www.sefaria.org/api/calendars')
     .then(r => r.json())
     .then(data => {
-      // Find Parashat Hashavua
-      const parsha = data.calendar_items.find(item => item.title.en === 'Parashat Hashavua');
-      if (parsha) {
-        parshaData = parsha;
-        renderParshaContent(parsha);
-        // Prefetch today's aliyah page for faster loading
-        prefetchTodayAliyah(parsha);
-      } else {
-        content.innerHTML = '<div class="parsha-loading">Could not load parsha data</div>';
-      }
+      torahCalendarData = data.calendar_items;
+      renderTorahDropdown(data.calendar_items);
     })
     .catch(err => {
-      content.innerHTML = '<div class="parsha-loading">Error loading parsha: ' + err.message + '</div>';
+      console.error('Failed to load Torah calendar:', err);
     });
+}
+
+function renderTorahDropdown(items) {
+  const menu = document.getElementById('torah-dropdown-menu');
+  // Define which items to show and in what order
+  const showItems = [
+    'Parashat Hashavua',
+    'Haftarah',
+    'Daf Yomi',
+    'Daily Mishnah',
+    'Daily Rambam',
+    'Daily Rambam (3 Chapters)',
+    '929',
+    'Daf a Week',
+    'Tanakh Yomi',
+    'Tanya Yomi',
+    'Yerushalmi Yomi',
+    'Chok LeYisrael'
+  ];
+
+  let html = '';
+  showItems.forEach(title => {
+    const item = items.find(i => i.title.en === title);
+    if (item) {
+      const displayVal = item.displayValue?.en || item.ref || '';
+      html += `<div class="torah-dropdown-item" data-title="${title}">
+        <div class="torah-dropdown-item-title">${title}</div>
+        <div class="torah-dropdown-item-ref">${displayVal}</div>
+      </div>`;
+    }
+  });
+  menu.innerHTML = html;
+
+  // Add click handlers
+  menu.querySelectorAll('.torah-dropdown-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const title = el.dataset.title;
+      const item = torahCalendarData.find(i => i.title.en === title);
+      if (item) {
+        openTorahModal(item);
+      }
+      closeTorahDropdown();
+    });
+  });
+}
+
+function toggleTorahDropdown() {
+  const menu = document.getElementById('torah-dropdown-menu');
+  menu.classList.toggle('open');
+}
+
+function closeTorahDropdown() {
+  document.getElementById('torah-dropdown-menu').classList.remove('open');
+}
+
+function openTorahModal(item) {
+  document.getElementById('torah-modal').classList.add('open');
+  renderTorahContent(item);
+}
+
+function closeTorahModal() {
+  document.getElementById('torah-modal').classList.remove('open');
+}
+
+function renderTorahContent(item) {
+  const content = document.getElementById('torah-content');
+  const title = item.title.en;
+  document.getElementById('torah-modal-title').textContent = '📖 ' + title;
+
+  // Special handling for Parashat Hashavua
+  if (title === 'Parashat Hashavua') {
+    renderParshaContent(item);
+    return;
+  }
+
+  // Generic rendering for other items
+  const displayVal = item.displayValue?.en || '';
+  const displayHe = item.displayValue?.he || '';
+  const ref = item.ref || '';
+  const sefariaUrl = ref ? 'https://www.sefaria.org/' + ref.replace(/ /g, '_') + '?lang=bi' : '';
+
+  let html = `
+    <div class="parsha-header">
+      <div class="parsha-name">${displayVal}</div>
+      ${displayHe ? `<div class="parsha-name-hebrew">${displayHe}</div>` : ''}
+      ${ref ? `<div class="parsha-ref">${ref}</div>` : ''}
+    </div>
+  `;
+
+  if (sefariaUrl) {
+    html += `
+      <div class="parsha-section">
+        <a href="${sefariaUrl}" target="_blank" class="parsha-aliyah-link">
+          Read on Sefaria →
+        </a>
+      </div>
+    `;
+  }
+
+  // Add description if available
+  if (item.description?.en) {
+    html += `
+      <div class="parsha-section">
+        <div style="font-size:var(--font-size-small); color:var(--text-secondary);">
+          ${item.description.en}
+        </div>
+      </div>
+    `;
+  }
+
+  content.innerHTML = html;
 }
 
 function prefetchTodayAliyah(parsha) {
@@ -2621,8 +3115,9 @@ function prefetchTodayAliyah(parsha) {
 }
 
 function renderParshaContent(parsha) {
-  const content = document.getElementById('parsha-content');
+  const content = document.getElementById('torah-content');
   const aliyot = parsha.extraDetails?.aliyot || [];
+  prefetchTodayAliyah(parsha);
 
   // Determine today's aliyah (Sunday=0 -> aliyah 1, Saturday=6 -> aliyah 7)
   const today = new Date();
@@ -2742,6 +3237,11 @@ function populateSettingsForm() {
   document.getElementById('setting-timezone').value = appSettings.timezone || 'Asia/Jerusalem';
   document.getElementById('setting-elevation').value = appSettings.elevation || '';
   document.getElementById('setting-hide-done').checked = localStorage.getItem('planner_hide_done') === 'true';
+  document.getElementById('setting-done-section').checked = localStorage.getItem('planner_done_section') === 'true';
+
+  // Populate shortcuts
+  populateShortcutInputs();
+  initShortcutRecording();
 
   // Populate calendar list
   const calendarList = document.getElementById('calendar-list');
@@ -2802,7 +3302,12 @@ function saveSettings() {
 
   // Save display settings to localStorage
   const hideDone = document.getElementById('setting-hide-done').checked;
+  const doneSection = document.getElementById('setting-done-section').checked;
   localStorage.setItem('planner_hide_done', hideDone);
+  localStorage.setItem('planner_done_section', doneSection);
+
+  // Save keyboard shortcuts to localStorage
+  saveShortcuts();
 
   apiPost({ action: 'save_settings', settings: settings }).then(data => {
     if (!data.success) {
@@ -2817,6 +3322,217 @@ function saveSettings() {
     }
   });
 }
+
+// Pomodoro timer
+let pomodoroState = {
+  taskId: null,
+  taskName: '',
+  endTime: null,
+  remainingMs: null,
+  isPaused: false,
+  intervalId: null,
+  audioContext: null
+};
+
+function startPomodoro(taskId, taskText) {
+  // Stop any existing timer
+  if (pomodoroState.intervalId) {
+    clearInterval(pomodoroState.intervalId);
+  }
+
+  // Remove active class from any previous task
+  document.querySelectorAll('.task-item.pomodoro-active').forEach(el => el.classList.remove('pomodoro-active'));
+  document.querySelectorAll('.pomodoro-btn.active').forEach(el => el.classList.remove('active'));
+
+  // Set up new timer (25 minutes)
+  const durationMs = 25 * 60 * 1000;
+  pomodoroState = {
+    taskId: taskId,
+    taskName: taskText,
+    endTime: Date.now() + durationMs,
+    remainingMs: durationMs,
+    isPaused: false,
+    intervalId: null,
+    audioContext: null
+  };
+
+  // Mark task as active
+  const taskEl = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
+  if (taskEl) {
+    taskEl.classList.add('pomodoro-active');
+    const btn = taskEl.querySelector('.pomodoro-btn');
+    if (btn) btn.classList.add('active');
+  }
+
+  // Show timer display
+  const timerEl = document.getElementById('pomodoro-timer');
+  timerEl.classList.add('active');
+  document.getElementById('pomodoro-task-name').textContent = taskText.substring(0, 30) + (taskText.length > 30 ? '...' : '');
+  document.getElementById('pomodoro-pause').textContent = 'Pause';
+
+  // Request notification permission
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  // Start the countdown
+  updatePomodoroDisplay();
+  pomodoroState.intervalId = setInterval(updatePomodoroDisplay, 1000);
+}
+
+function updatePomodoroDisplay() {
+  if (pomodoroState.isPaused) return;
+
+  const now = Date.now();
+  const remaining = pomodoroState.endTime - now;
+
+  if (remaining <= 0) {
+    // Timer complete!
+    completePomodoroTimer();
+    return;
+  }
+
+  const minutes = Math.floor(remaining / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+  document.getElementById('pomodoro-time').textContent =
+    String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+  // Update tab title
+  document.title = `${minutes}:${String(seconds).padStart(2, '0')} - Planner`;
+}
+
+function completePomodoroTimer() {
+  clearInterval(pomodoroState.intervalId);
+
+  // Play alarm sound
+  playPomodoroAlarm();
+
+  // Show notification
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Pomodoro Complete!', {
+      body: `Time's up! Task: ${pomodoroState.taskName}`,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍅</text></svg>'
+    });
+  }
+
+  // Flash the tab title
+  let flashCount = 0;
+  const originalTitle = 'Planner';
+  const flashInterval = setInterval(() => {
+    document.title = flashCount % 2 === 0 ? '🍅 Time\'s up!' : originalTitle;
+    flashCount++;
+    if (flashCount > 10) {
+      clearInterval(flashInterval);
+      document.title = originalTitle;
+    }
+  }, 500);
+
+  // Update display to show 00:00
+  document.getElementById('pomodoro-time').textContent = '00:00';
+
+  // Show toast
+  showToast('🍅 Pomodoro complete! Take a break.', 'success');
+
+  // Keep timer visible for a few seconds, then hide
+  setTimeout(() => {
+    stopPomodoro();
+  }, 5000);
+}
+
+function playPomodoroAlarm() {
+  try {
+    // Create audio context for alarm sound
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioContext();
+
+    // Play a pleasant alarm sound (ascending tones)
+    const playTone = (freq, startTime, duration) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.3, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+
+    // Play a short melody
+    const now = ctx.currentTime;
+    playTone(523.25, now, 0.2);       // C5
+    playTone(659.25, now + 0.2, 0.2); // E5
+    playTone(783.99, now + 0.4, 0.2); // G5
+    playTone(1046.5, now + 0.6, 0.4); // C6
+
+    // Repeat the melody
+    playTone(523.25, now + 1.2, 0.2);
+    playTone(659.25, now + 1.4, 0.2);
+    playTone(783.99, now + 1.6, 0.2);
+    playTone(1046.5, now + 1.8, 0.4);
+
+    pomodoroState.audioContext = ctx;
+  } catch (e) {
+    console.log('Audio not available:', e);
+  }
+}
+
+function pausePomodoro() {
+  if (!pomodoroState.intervalId) return;
+
+  const btn = document.getElementById('pomodoro-pause');
+
+  if (pomodoroState.isPaused) {
+    // Resume
+    pomodoroState.isPaused = false;
+    pomodoroState.endTime = Date.now() + pomodoroState.remainingMs;
+    btn.textContent = 'Pause';
+  } else {
+    // Pause
+    pomodoroState.isPaused = true;
+    pomodoroState.remainingMs = pomodoroState.endTime - Date.now();
+    btn.textContent = 'Resume';
+  }
+}
+
+function stopPomodoro() {
+  if (pomodoroState.intervalId) {
+    clearInterval(pomodoroState.intervalId);
+  }
+
+  // Clean up audio context
+  if (pomodoroState.audioContext) {
+    pomodoroState.audioContext.close();
+  }
+
+  // Remove active class from task
+  document.querySelectorAll('.task-item.pomodoro-active').forEach(el => el.classList.remove('pomodoro-active'));
+  document.querySelectorAll('.pomodoro-btn.active').forEach(el => el.classList.remove('active'));
+
+  // Hide timer display
+  document.getElementById('pomodoro-timer').classList.remove('active');
+  document.getElementById('pomodoro-time').textContent = '25:00';
+  document.getElementById('pomodoro-task-name').textContent = '';
+
+  // Reset title
+  document.title = 'Planner';
+
+  // Reset state
+  pomodoroState = {
+    taskId: null,
+    taskName: '',
+    endTime: null,
+    remainingMs: null,
+    isPaused: false,
+    intervalId: null,
+    audioContext: null
+  };
+}
+
+// Pomodoro control event listeners
+document.getElementById('pomodoro-pause').addEventListener('click', pausePomodoro);
+document.getElementById('pomodoro-stop').addEventListener('click', stopPomodoro);
 
 // Event wiring
 document.getElementById('add-task-form').addEventListener('submit', e => {
@@ -2835,11 +3551,65 @@ document.getElementById('save-journal').addEventListener('click', e => {
   saveJournal();
 });
 
-document.getElementById('journal-content').addEventListener('keydown', e => {
-  if (e.ctrlKey && e.key === 'Enter') {
-    e.preventDefault();
-    saveJournal();
+// Journal Ctrl+Enter is handled by global keyboard shortcuts system
+
+// Journal search
+function searchJournal() {
+  const query = document.getElementById('journal-search-input').value.trim();
+  if (query.length < 2) {
+    showToast('Search query must be at least 2 characters', 'error');
+    return;
   }
+
+  apiPost({ action: 'search_journal', query }).then(data => {
+    if (!data.success) {
+      showToast(data.error || 'Search failed', 'error');
+      return;
+    }
+
+    const resultsDiv = document.getElementById('journal-search-results');
+    if (data.results.length === 0) {
+      resultsDiv.innerHTML = '<div class="search-no-results">No results found</div>';
+    } else {
+      resultsDiv.innerHTML = data.results.map(r => {
+        const date = new Date(r.date + 'T00:00:00');
+        const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+        // Highlight search term in snippet
+        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const highlightedSnippet = r.snippet.replace(new RegExp('(' + escapedQuery + ')', 'gi'), '<mark>$1</mark>');
+        return `<div class="search-result" data-date="${r.date}">
+          <div class="search-result-date">${dateStr}</div>
+          <div class="search-result-snippet">${highlightedSnippet}</div>
+        </div>`;
+      }).join('');
+
+      // Add click handlers to navigate to date
+      resultsDiv.querySelectorAll('.search-result').forEach(el => {
+        el.addEventListener('click', () => {
+          loadDay(el.dataset.date);
+          closeJournalSearchModal();
+        });
+      });
+    }
+
+    document.getElementById('journal-search-modal').classList.add('open');
+  });
+}
+
+function closeJournalSearchModal() {
+  document.getElementById('journal-search-modal').classList.remove('open');
+}
+
+document.getElementById('journal-search-btn').addEventListener('click', searchJournal);
+document.getElementById('journal-search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    searchJournal();
+  }
+});
+document.getElementById('journal-search-modal-close').addEventListener('click', closeJournalSearchModal);
+document.getElementById('journal-search-modal').addEventListener('click', e => {
+  if (e.target.id === 'journal-search-modal') closeJournalSearchModal();
 });
 
 // Dropzone events
@@ -3010,12 +3780,23 @@ document.getElementById('recurring-form').addEventListener('submit', (e) => {
   }
 });
 
-// Parsha modal events
-document.getElementById('parsha-btn').addEventListener('click', openParshaModal);
-document.getElementById('parsha-modal-close').addEventListener('click', closeParshaModal);
-document.getElementById('parsha-modal').addEventListener('click', (e) => {
-  if (e.target.id === 'parsha-modal') closeParshaModal();
+// Torah dropdown and modal events
+document.getElementById('torah-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleTorahDropdown();
 });
+document.getElementById('torah-modal-close').addEventListener('click', closeTorahModal);
+document.getElementById('torah-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'torah-modal') closeTorahModal();
+});
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('torah-dropdown').contains(e.target)) {
+    closeTorahDropdown();
+  }
+});
+
+// Load Torah dropdown on page load
+loadTorahDropdown();
 
 // Settings modal events
 document.getElementById('settings-btn').addEventListener('click', () => {
@@ -3033,6 +3814,9 @@ document.getElementById('settings-form').addEventListener('submit', (e) => {
 });
 document.getElementById('add-calendar-btn').addEventListener('click', () => {
   addCalendarEntry();
+});
+document.getElementById('reset-shortcuts-btn').addEventListener('click', () => {
+  resetShortcuts();
 });
 
 // Change password modal events
@@ -3417,6 +4201,10 @@ document.getElementById('today-btn').addEventListener('click', () => {
 
 // Load theme from localStorage on page load
 loadThemeFromStorage();
+
+// Initialize keyboard shortcuts
+loadShortcuts();
+document.addEventListener('keydown', handleGlobalShortcuts);
 
 // Initial load
 loadDay(currentDate);

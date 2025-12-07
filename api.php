@@ -387,6 +387,16 @@ try {
             ]);
             break;
 
+        case 'search_journal':
+            $query = trim($input['query'] ?? '');
+            if (strlen($query) < 2) {
+                echo json_encode(['success' => false, 'error' => 'Search query too short']);
+                break;
+            }
+            $results = search_journal($pdo, $query);
+            echo json_encode(['success' => true, 'results' => $results]);
+            break;
+
         default:
             echo json_encode(['success' => false, 'error' => 'Unknown action']);
     }
@@ -408,6 +418,34 @@ function load_journal(PDO $pdo, string $date): ?string {
     $stmt->execute([':d' => $date]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row ? $row['content'] : '';
+}
+
+function search_journal(PDO $pdo, string $query): array {
+    $searchTerm = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $query) . '%';
+    $stmt = $pdo->prepare('
+        SELECT entry_date, content
+        FROM journal_entries
+        WHERE content LIKE :q
+        ORDER BY entry_date DESC
+        LIMIT 50
+    ');
+    $stmt->execute([':q' => $searchTerm]);
+    $results = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        // Extract snippet around match
+        $content = $row['content'];
+        $pos = stripos($content, $query);
+        $start = max(0, $pos - 50);
+        $snippet = substr($content, $start, 150);
+        if ($start > 0) $snippet = '...' . $snippet;
+        if (strlen($content) > $start + 150) $snippet .= '...';
+
+        $results[] = [
+            'date' => $row['entry_date'],
+            'snippet' => $snippet
+        ];
+    }
+    return $results;
 }
 
 function generate_recurring_tasks(PDO $pdo, string $date): void {
@@ -827,20 +865,6 @@ function get_month_index(PDO $pdo, int $year, int $month): array {
         ORDER BY entry_date, created_at
     ');
     $stmt->execute([':start' => $startDate, ':end' => $endDate]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-function search_journal(PDO $pdo, string $query): array {
-    $searchTerm = '%' . $query . '%';
-    $stmt = $pdo->prepare('
-        SELECT entry_date, content,
-               SUBSTRING(content, GREATEST(1, LOCATE(:q1, content) - 50), 150) AS snippet
-        FROM journal_entries
-        WHERE content LIKE :q2
-        ORDER BY entry_date DESC
-        LIMIT 50
-    ');
-    $stmt->execute([':q1' => $query, ':q2' => $searchTerm]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
