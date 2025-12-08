@@ -2,6 +2,7 @@
 config.php
 .deploy.conf
 .deploy-config
+jira_tokens.json
 
 # Claude Code local files
 .claude/

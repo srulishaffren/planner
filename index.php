@@ -520,6 +520,39 @@ $today = date('Y-m-d');
       .user-dropdown { right:-10px; min-width:180px; }
     }
 
+    /* Jira section styles */
+    .jira-section { margin-top:16px; border-top:2px solid var(--border-primary); padding-top:12px; }
+    .jira-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; cursor:pointer; }
+    .jira-header:hover { opacity:0.8; }
+    .jira-title { font-weight:bold; display:flex; align-items:center; gap:8px; }
+    .jira-title img { width:16px; height:16px; }
+    .jira-toggle { color:var(--text-muted); font-size:var(--font-size-small); }
+    .jira-issues { list-style:none; padding:0; margin:0; }
+    .jira-issues.collapsed { display:none; }
+    .jira-issue { background:var(--bg-tertiary); border:1px solid var(--border-secondary); border-radius:4px; padding:8px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+    .jira-issue:hover { background:var(--bg-hover); }
+    .jira-issue-left { flex:1; min-width:0; }
+    .jira-issue-key { font-family:monospace; font-size:var(--font-size-small); color:var(--accent-primary); margin-right:8px; }
+    .jira-issue-summary { color:var(--text-primary); }
+    .jira-issue-meta { font-size:var(--font-size-xs); color:var(--text-muted); margin-top:4px; display:flex; gap:12px; flex-wrap:wrap; }
+    .jira-issue-right { display:flex; gap:4px; flex-shrink:0; }
+    .jira-issue-right button { padding:4px 8px; font-size:var(--font-size-small); }
+    .jira-status { padding:2px 6px; border-radius:3px; font-size:var(--font-size-xs); }
+    .jira-status.done { background:#28a745; color:white; }
+    .jira-status.indeterminate { background:#17a2b8; color:white; }
+    .jira-status.new { background:#6c757d; color:white; }
+    .jira-priority-highest { color:#d04437; }
+    .jira-priority-high { color:#ff991f; }
+    .jira-priority-medium { color:#ffab00; }
+    .jira-priority-low { color:#2684ff; }
+    .jira-priority-lowest { color:#0052cc; }
+    .jira-due-soon { color:var(--accent-danger); font-weight:bold; }
+    .jira-overdue { color:var(--accent-danger); font-weight:bold; background:rgba(220,53,69,0.1); padding:1px 4px; border-radius:2px; }
+    .jira-connect-prompt { text-align:center; padding:20px; color:var(--text-secondary); }
+    .jira-connect-prompt button { margin-top:10px; }
+    .jira-loading { text-align:center; padding:20px; color:var(--text-muted); }
+    .jira-error { color:var(--accent-danger); padding:10px; text-align:center; }
+
   </style>
 </head>
 <body>
@@ -1149,6 +1182,11 @@ let allYartzheits = [];
 let appSettings = {};
 let currentTheme = {};
 
+// Jira state
+let jiraConnected = false;
+let jiraIssues = [];
+let jiraCollapsed = localStorage.getItem('planner_jira_collapsed') === 'true';
+
 // Keyboard shortcuts system
 const defaultShortcuts = {
   save_journal: 'ctrl+enter',
@@ -1746,6 +1784,11 @@ function loadDay(date) {
 
     // Auto-import calendar events (silently, only shows toast if events imported)
     importCalendarEvents(date);
+
+    // Load Jira issues (only on first load or if status unknown)
+    if (!jiraConnected && jiraIssues.length === 0) {
+      checkJiraStatus();
+    }
   });
 }
 
@@ -2036,6 +2079,9 @@ function renderTasks() {
       container.appendChild(doneSection);
     }
   }
+
+  // Render Jira section (always, at the end)
+  renderJiraSection(container);
 }
 
 // Drag and drop
@@ -4398,6 +4444,246 @@ apiPost({ action: 'get_settings' }).then(data => {
   }
   loadDay(currentDate);
 });
+
+// ============ Jira Integration ============
+
+function checkJiraStatus() {
+  apiPost({ action: 'jira_status' }).then(data => {
+    if (data.success && data.jira) {
+      jiraConnected = data.jira.connected;
+      if (jiraConnected) {
+        loadJiraIssues();
+      } else {
+        renderTasks(); // Re-render to show connect prompt
+      }
+    }
+  });
+}
+
+function loadJiraIssues() {
+  apiPost({ action: 'jira_issues' }).then(data => {
+    if (data.success) {
+      if (data.issues.error) {
+        jiraIssues = [];
+        jiraConnected = false;
+        console.error('Jira error:', data.issues.error);
+      } else {
+        jiraIssues = data.issues;
+        jiraConnected = true;
+      }
+      renderTasks();
+    }
+  });
+}
+
+function connectJira() {
+  apiPost({ action: 'jira_auth_url' }).then(data => {
+    if (data.success && data.url) {
+      window.location.href = data.url;
+    } else {
+      showToast('Failed to get Jira auth URL', 'error');
+    }
+  });
+}
+
+function disconnectJira() {
+  showConfirm('Disconnect from Jira?').then(confirmed => {
+    if (confirmed) {
+      apiPost({ action: 'jira_disconnect' }).then(data => {
+        if (data.success) {
+          jiraConnected = false;
+          jiraIssues = [];
+          renderTasks();
+          showToast('Disconnected from Jira', 'success');
+        }
+      });
+    }
+  });
+}
+
+function toggleJiraSection() {
+  jiraCollapsed = !jiraCollapsed;
+  localStorage.setItem('planner_jira_collapsed', jiraCollapsed);
+  renderTasks();
+}
+
+function copyJiraUrl(url) {
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('Jira URL copied to clipboard', 'success');
+  }).catch(() => {
+    showToast('Failed to copy URL', 'error');
+  });
+}
+
+function renderJiraSection(container) {
+  const section = document.createElement('div');
+  section.className = 'jira-section';
+
+  const header = document.createElement('div');
+  header.className = 'jira-header';
+  header.addEventListener('click', toggleJiraSection);
+
+  const title = document.createElement('div');
+  title.className = 'jira-title';
+  title.innerHTML = '<img src="https://wac-cdn.atlassian.com/assets/img/favicons/atlassian/favicon-32x32.png" alt="Jira"> Jira Issues';
+  if (jiraIssues.length > 0) {
+    title.innerHTML += ` <span style="color:var(--text-muted)">(${jiraIssues.length})</span>`;
+  }
+  header.appendChild(title);
+
+  const toggle = document.createElement('span');
+  toggle.className = 'jira-toggle';
+  toggle.textContent = jiraCollapsed ? '+ Show' : '- Hide';
+  header.appendChild(toggle);
+
+  section.appendChild(header);
+
+  if (!jiraConnected) {
+    // Show connect prompt
+    const prompt = document.createElement('div');
+    prompt.className = 'jira-connect-prompt';
+    prompt.innerHTML = '<div>Connect to Jira to see your open issues</div>';
+    const btn = document.createElement('button');
+    btn.textContent = 'Connect Jira';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      connectJira();
+    });
+    prompt.appendChild(btn);
+    section.appendChild(prompt);
+  } else if (!jiraCollapsed) {
+    // Show issues list
+    const list = document.createElement('ul');
+    list.className = 'jira-issues';
+
+    if (jiraIssues.length === 0) {
+      const empty = document.createElement('li');
+      empty.style.cssText = 'text-align:center; color:var(--text-muted); padding:20px;';
+      empty.textContent = 'No open issues assigned to you';
+      list.appendChild(empty);
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      jiraIssues.forEach(issue => {
+        const item = document.createElement('li');
+        item.className = 'jira-issue';
+
+        const left = document.createElement('div');
+        left.className = 'jira-issue-left';
+
+        const keySpan = document.createElement('span');
+        keySpan.className = 'jira-issue-key';
+        keySpan.textContent = issue.key;
+
+        const summarySpan = document.createElement('span');
+        summarySpan.className = 'jira-issue-summary';
+        summarySpan.textContent = issue.summary;
+
+        const textLine = document.createElement('div');
+        textLine.appendChild(keySpan);
+        textLine.appendChild(summarySpan);
+        left.appendChild(textLine);
+
+        // Meta line: status, priority, due date
+        const meta = document.createElement('div');
+        meta.className = 'jira-issue-meta';
+
+        const statusSpan = document.createElement('span');
+        statusSpan.className = 'jira-status ' + issue.status_category;
+        statusSpan.textContent = issue.status;
+        meta.appendChild(statusSpan);
+
+        const prioritySpan = document.createElement('span');
+        prioritySpan.className = 'jira-priority-' + issue.priority.toLowerCase();
+        prioritySpan.textContent = issue.priority;
+        meta.appendChild(prioritySpan);
+
+        const typeSpan = document.createElement('span');
+        typeSpan.textContent = issue.issue_type;
+        meta.appendChild(typeSpan);
+
+        if (issue.due_date) {
+          const dueDate = new Date(issue.due_date);
+          dueDate.setHours(0, 0, 0, 0);
+          const dueSpan = document.createElement('span');
+          const diffDays = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+
+          if (diffDays < 0) {
+            dueSpan.className = 'jira-overdue';
+            dueSpan.textContent = 'Overdue: ' + issue.due_date;
+          } else if (diffDays <= 3) {
+            dueSpan.className = 'jira-due-soon';
+            dueSpan.textContent = 'Due: ' + issue.due_date;
+          } else {
+            dueSpan.textContent = 'Due: ' + issue.due_date;
+          }
+          meta.appendChild(dueSpan);
+        }
+
+        left.appendChild(meta);
+        item.appendChild(left);
+
+        // Right side: copy URL button
+        const right = document.createElement('div');
+        right.className = 'jira-issue-right';
+
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = 'Copy URL';
+        copyBtn.title = 'Copy Jira URL to clipboard';
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          copyJiraUrl(issue.url);
+        });
+        right.appendChild(copyBtn);
+
+        item.appendChild(right);
+        list.appendChild(item);
+      });
+    }
+
+    section.appendChild(list);
+
+    // Add disconnect link
+    const footer = document.createElement('div');
+    footer.style.cssText = 'text-align:right; margin-top:8px; font-size:var(--font-size-xs);';
+    const disconnectLink = document.createElement('a');
+    disconnectLink.href = '#';
+    disconnectLink.textContent = 'Disconnect Jira';
+    disconnectLink.style.color = 'var(--text-muted)';
+    disconnectLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      disconnectJira();
+    });
+    footer.appendChild(disconnectLink);
+
+    // Add refresh link
+    const refreshLink = document.createElement('a');
+    refreshLink.href = '#';
+    refreshLink.textContent = 'Refresh';
+    refreshLink.style.cssText = 'color:var(--text-muted); margin-right:12px;';
+    refreshLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      loadJiraIssues();
+    });
+    footer.insertBefore(refreshLink, disconnectLink);
+
+    section.appendChild(footer);
+  }
+
+  container.appendChild(section);
+}
+
+// Check for ?jira=connected in URL (after OAuth callback)
+if (window.location.search.includes('jira=connected')) {
+  // Remove the query param from URL
+  window.history.replaceState({}, document.title, window.location.pathname);
+  showToast('Connected to Jira!', 'success');
+  jiraConnected = true;
+  loadJiraIssues();
+}
 </script>
 
 </body>

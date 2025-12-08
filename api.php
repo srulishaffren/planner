@@ -423,6 +423,26 @@ try {
             echo json_encode(['success' => true, 'results' => $results]);
             break;
 
+        case 'jira_status':
+            $status = get_jira_status();
+            echo json_encode(['success' => true, 'jira' => $status]);
+            break;
+
+        case 'jira_auth_url':
+            $url = get_jira_auth_url();
+            echo json_encode(['success' => true, 'url' => $url]);
+            break;
+
+        case 'jira_disconnect':
+            jira_disconnect();
+            echo json_encode(['success' => true]);
+            break;
+
+        case 'jira_issues':
+            $issues = get_jira_issues();
+            echo json_encode(['success' => true, 'issues' => $issues]);
+            break;
+
         default:
             echo json_encode(['success' => false, 'error' => 'Unknown action']);
     }
@@ -1594,4 +1614,182 @@ function upload_profile_photo(array $file): array {
         'success' => true,
         'path' => 'uploads/profile/avatar.jpg?t=' . time()
     ];
+}
+
+// Jira OAuth functions
+function get_jira_status(): array {
+    global $jiraTokenFile;
+
+    if (!file_exists($jiraTokenFile)) {
+        return ['connected' => false];
+    }
+
+    $tokens = json_decode(file_get_contents($jiraTokenFile), true);
+    if (!$tokens || empty($tokens['access_token'])) {
+        return ['connected' => false];
+    }
+
+    // Check if token is expired
+    if (isset($tokens['expires_at']) && time() > $tokens['expires_at']) {
+        // Try to refresh
+        $refreshed = refresh_jira_token($tokens);
+        if (!$refreshed) {
+            return ['connected' => false, 'error' => 'Token expired'];
+        }
+        $tokens = $refreshed;
+    }
+
+    return [
+        'connected' => true,
+        'site_name' => $tokens['site_name'] ?? 'Jira',
+        'connected_at' => $tokens['created_at'] ?? null,
+    ];
+}
+
+function get_jira_auth_url(): string {
+    global $jiraClientId, $jiraCallbackUrl, $jiraScopes;
+
+    $params = [
+        'audience' => 'api.atlassian.com',
+        'client_id' => $jiraClientId,
+        'scope' => $jiraScopes,
+        'redirect_uri' => $jiraCallbackUrl,
+        'response_type' => 'code',
+        'prompt' => 'consent',
+    ];
+
+    return 'https://auth.atlassian.com/authorize?' . http_build_query($params);
+}
+
+function jira_disconnect(): void {
+    global $jiraTokenFile;
+    if (file_exists($jiraTokenFile)) {
+        unlink($jiraTokenFile);
+    }
+}
+
+function refresh_jira_token(array $tokens): ?array {
+    global $jiraClientId, $jiraClientSecret, $jiraTokenFile;
+
+    if (empty($tokens['refresh_token'])) {
+        return null;
+    }
+
+    $ch = curl_init('https://auth.atlassian.com/oauth/token');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query([
+            'grant_type' => 'refresh_token',
+            'client_id' => $jiraClientId,
+            'client_secret' => $jiraClientSecret,
+            'refresh_token' => $tokens['refresh_token'],
+        ]),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200) {
+        return null;
+    }
+
+    $newTokens = json_decode($response, true);
+    if (!isset($newTokens['access_token'])) {
+        return null;
+    }
+
+    // Update stored tokens
+    $tokens['access_token'] = $newTokens['access_token'];
+    $tokens['expires_at'] = time() + ($newTokens['expires_in'] ?? 3600);
+    if (isset($newTokens['refresh_token'])) {
+        $tokens['refresh_token'] = $newTokens['refresh_token'];
+    }
+
+    file_put_contents($jiraTokenFile, json_encode($tokens, JSON_PRETTY_PRINT));
+    chmod($jiraTokenFile, 0600);
+
+    return $tokens;
+}
+
+function get_jira_issues(): array {
+    global $jiraTokenFile;
+
+    if (!file_exists($jiraTokenFile)) {
+        return ['error' => 'Not connected to Jira'];
+    }
+
+    $tokens = json_decode(file_get_contents($jiraTokenFile), true);
+    if (!$tokens || empty($tokens['access_token']) || empty($tokens['cloud_id'])) {
+        return ['error' => 'Invalid Jira connection'];
+    }
+
+    // Check if token is expired and refresh if needed
+    if (isset($tokens['expires_at']) && time() > $tokens['expires_at']) {
+        $tokens = refresh_jira_token($tokens);
+        if (!$tokens) {
+            return ['error' => 'Token expired, please reconnect'];
+        }
+    }
+
+    $cloudId = $tokens['cloud_id'];
+    $accessToken = $tokens['access_token'];
+
+    // JQL: open issues assigned to current user, ordered by due date then priority
+    $jql = 'assignee = currentUser() AND resolution = Unresolved ORDER BY duedate ASC, priority DESC';
+    $fields = ['key', 'summary', 'status', 'priority', 'duedate', 'issuetype'];
+
+    $url = "https://api.atlassian.com/ex/jira/{$cloudId}/rest/api/3/search/jql";
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode([
+            'jql' => $jql,
+            'maxResults' => 50,
+            'fields' => $fields,
+        ]),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $accessToken,
+            'Accept: application/json',
+            'Content-Type: application/json',
+        ],
+        CURLOPT_TIMEOUT => 10,
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200) {
+        error_log("Jira API error (HTTP $httpCode): $response");
+        return ['error' => "Jira API error (HTTP $httpCode)"];
+    }
+
+    $data = json_decode($response, true);
+    if (!isset($data['issues'])) {
+        return ['error' => 'Unexpected Jira response'];
+    }
+
+    // Transform to simpler format
+    $issues = [];
+    foreach ($data['issues'] as $issue) {
+        $fields = $issue['fields'];
+        $issues[] = [
+            'key' => $issue['key'],
+            'summary' => $fields['summary'] ?? '',
+            'status' => $fields['status']['name'] ?? 'Unknown',
+            'status_category' => $fields['status']['statusCategory']['key'] ?? 'undefined',
+            'priority' => $fields['priority']['name'] ?? 'None',
+            'priority_id' => $fields['priority']['id'] ?? '5',
+            'due_date' => $fields['duedate'] ?? null,
+            'issue_type' => $fields['issuetype']['name'] ?? 'Task',
+            'url' => 'https://uszoom.atlassian.net/browse/' . $issue['key'],
+        ];
+    }
+
+    return $issues;
 }
