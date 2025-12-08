@@ -4391,8 +4391,13 @@ loadThemeFromStorage();
 loadShortcuts();
 document.addEventListener('keydown', handleGlobalShortcuts);
 
-// Initial load
-loadDay(currentDate);
+// Initial load - load settings first (for secrets UI), then load the day
+apiPost({ action: 'get_settings' }).then(data => {
+  if (data.success) {
+    appSettings = data.settings || {};
+  }
+  loadDay(currentDate);
+});
 </script>
 
 </body>
