@@ -6,6 +6,7 @@ jira_tokens.json
 
 # Claude Code local files
 .claude/
+CLAUDE.md
 
 # User data
 uploads/
