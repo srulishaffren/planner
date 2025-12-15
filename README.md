@@ -20,7 +20,7 @@ A personal daily planner web application with task management, journaling, Hebre
 
 ## Tech Stack
 
-- **Backend**: PHP 7.4+ with PDO/MySQL
+- **Backend**: PHP 8.4+ with PDO/MySQL
 - **Frontend**: Vanilla JavaScript (single-page app)
 - **Database**: MariaDB/MySQL
 - **External APIs**: Hebcal (Hebrew calendar), Sefaria (Torah content)
